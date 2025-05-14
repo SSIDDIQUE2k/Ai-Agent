@@ -1,31 +1,27 @@
 # vector.py
-
 import os
+import io
+import contextlib
+import csv, chardet
 from pathlib import Path
 from glob import glob
-import csv
-import chardet
-import pdfplumber
-import contextlib
-import io
 
 from langchain_core.documents import Document
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 
 # ─── CONFIG ─────────────────────────────────────────────────────────────
-DATA_PATH   = "data/Cookie.pdf"             # file OR directory of CSVs/PDFs
-PERSIST_DIR = "./chroma_db"                 # persistent vector DB
-COLLECTION  = "all_documents"                # Chroma collection name
-EMBED_MODEL = "mxbai-embed-large"           # embeddings model
-MIN_SCORE   = 0.65                            # similarity score threshold
+DATA_DIR      = "data"             # your folder of CSVs and/or PDFs
+PERSIST_DIR   = "./chroma_db"      # persistent Chroma store
+COLLECTION    = "all_documents"
+EMBED_MODEL   = "mxbai-embed-large"
+MIN_SCORE     = 0.65
+TOP_K         = 5
 
-# Validate source path
-src = Path(DATA_PATH)
-if not src.exists():
-    raise FileNotFoundError(f"Data path '{DATA_PATH}' not found")
+# ensure persistence dir exists
+os.makedirs(PERSIST_DIR, exist_ok=True)
 
-# Initialize Chroma with persistence
+# initialize embeddings + vector store
 embeddings = OllamaEmbeddings(model=EMBED_MODEL)
 vector_store = Chroma(
     collection_name=COLLECTION,
@@ -33,102 +29,85 @@ vector_store = Chroma(
     embedding_function=embeddings
 )
 
-# ─── INDEXING UTILS ─────────────────────────────────────────────────────
-def sanitize_metadata(metadata: dict) -> dict:
-    """Convert all keys to str and values to str"""
-    out = {}
-    for k, v in metadata.items():
-        if k is None:
-            continue
-        key = str(k)
-        out[key] = str(v)
-    return out
+# ─── INDEX ONCE ─────────────────────────────────────────────────────────
+def _sanitize_meta(meta: dict) -> dict:
+    """Convert all keys/values to strings for Chroma compatibility."""
+    return {str(k): str(v) for k, v in meta.items() if k is not None}
 
-# Build list of files to index
-if src.is_dir():
-    files = [str(p) for p in src.iterdir() if p.suffix.lower() in {'.csv', '.pdf'}]
-elif src.is_file():
-    files = [str(src)]
-else:
-    files = []
+def _index_documents():
+    docs, ids = [], []
+    for filepath in glob(f"{DATA_DIR}/*"):
+        ext  = Path(filepath).suffix.lower()
+        name = Path(filepath).name
 
-documents, ids = [], []
-for file in files:
-    ext = Path(file).suffix.lower()
-    name = Path(file).name
+        # — CSV —
+        if ext == ".csv":
+            # detect encoding
+            raw = open(filepath, "rb").read(50000)
+            enc = chardet.detect(raw)["encoding"] or "utf-8"
+            with open(filepath, encoding=enc, newline="") as fp:
+                reader = csv.DictReader(fp)
+                rows = list(reader)
 
-    if ext == ".csv":
-        # process CSV
-        with open(file, 'rb') as f:
-            raw = f.read(50000)
-            encoding = chardet.detect(raw)['encoding'] or 'utf-8'
-        with open(file, newline='', encoding=encoding) as fp:
-            reader = csv.DictReader(fp)
-            rows = list(reader)
-        print(f"📊 Indexing {len(rows)} rows from {name}")
-        for i, row in enumerate(rows):
-            content = "\n".join(f"{k}: {v}" for k, v in row.items())
-            if not content.strip():
+            for i, row in enumerate(rows):
+                text = "\n".join(f"{k}: {v}" for k, v in row.items())
+                meta = _sanitize_meta({**row, "source": name, "row": i})
+                doc_id = f"{name}_row{i}"
+                docs.append(Document(page_content=text, metadata=meta, id=doc_id))
+                ids.append(doc_id)
+
+        # — PDF —
+        elif ext == ".pdf":
+            try:
+                import pdfplumber
+                with pdfplumber.open(filepath) as pdf:
+                    for i, page in enumerate(pdf.pages):
+                        txt = page.extract_text() or ""
+                        if not txt.strip():
+                            continue
+                        meta = _sanitize_meta({"source": name, "page": i})
+                        doc_id = f"{name}_page{i}"
+                        docs.append(Document(page_content=txt, metadata=meta, id=doc_id))
+                        ids.append(doc_id)
+            except ImportError:
+                # skip PDFs if pdfplumber not installed
                 continue
-            meta = sanitize_metadata({**row, 'source': name, 'row': i, 'file_type': 'csv'})
-            doc_id = f"{name}_row{i}"
-            documents.append(Document(page_content=content, metadata=meta, id=doc_id))
-            ids.append(doc_id)
 
-    elif ext == ".pdf":
-        # process PDF with pdfplumber
-        try:
-            with pdfplumber.open(file) as pdf:
-                pages = pdf.pages
-                print(f"📄 Indexing {len(pages)} pages from {name}")
-                for j, page in enumerate(pages):
-                    text = page.extract_text() or ''
-                    if not text.strip():
-                        continue
-                    meta = sanitize_metadata({'source': name, 'page': j, 'file_type': 'pdf'})
-                    doc_id = f"{name}_page{j}"
-                    documents.append(Document(page_content=text, metadata=meta, id=doc_id))
-                    ids.append(doc_id)
-        except Exception as e:
-            print(f"⚠️ Error processing PDF '{name}': {e}")
-            continue
-
+    if docs:
+        vector_store.add_documents(documents=docs, ids=ids)
+        print(f"✅ Indexed {len(docs)} docs into '{PERSIST_DIR}'")
     else:
-        continue
+        print("⚠️  No documents found to index.")
 
-# Load documents into Chroma
-if documents:
-    vector_store.add_documents(documents=documents, ids=ids)
-    print(f"✅ Indexed {len(documents)} documents into '{PERSIST_DIR}'")
-else:
-    print("⚠️ No documents indexed.")
+# only index if empty
+if vector_store._collection.count() == 0:
+    _index_documents()
 
 # ─── RETRIEVER ──────────────────────────────────────────────────────────
-def get_reviews(question: str, k: int = 5) -> str:
-    """Retrieve top-k snippets filtered by MIN_SCORE without overshoot warnings"""
-    # clamp k to available docs
+def get_snippets(question: str, k: int = TOP_K) -> str:
+    """Return up to k page_contents whose score ≥ MIN_SCORE."""
     total = vector_store._collection.count()
     k_eff = min(k, total)
-    # suppress any internal prints from Chroma
+
+    # suppress Chroma's console output
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         results = vector_store.similarity_search_with_score(question, k=k_eff)
-    # filter by score and dedupe
+
     filtered, seen = [], set()
     for doc, score in results:
         if score >= MIN_SCORE and doc.page_content not in seen:
             seen.add(doc.page_content)
             filtered.append(doc.page_content)
-            if len(filtered) == k_eff:
+            if len(filtered) >= k_eff:
                 break
+
     return "\n\n".join(filtered)
 
 class RetrieverCaller:
+    """Expose a simple `retriever.invoke(question)` interface."""
     def invoke(self, question: str) -> str:
-        try:
-            return get_reviews(question)
-        except Exception as e:
-            print(f"Retrieval error: {e}")
-            return ""
+        return get_snippets(question)
 
+# singleton retriever for import
 retriever = RetrieverCaller()

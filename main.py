@@ -1,174 +1,140 @@
-
-# import sys
-# import random
-# import time
-# from functools import lru_cache
-# from langchain_ollama.llms import OllamaLLM
-# from langchain_core.prompts import ChatPromptTemplate
-# from vector import retriever
-
-# # ─── MODEL SETUP ─────────────────────────────────────────────────────────
-# model = OllamaLLM(
-#     model="llama3.2",
-#     temperature=0.0
-# )
-
-# # ─── PROMPT TEMPLATE ─────────────────────────────────────────────────────
-# template = """
-# Answer only from these snippets. If you don't know, say "I don't know."
-
-# SNIPPETS:
-# {reviews}
-
-# QUESTION:
-# {question}
-
-# ANSWER:
-# """
-# prompt = ChatPromptTemplate.from_template(template)
-# chain = prompt | model
-
-# # ─── PREDEFINED RESPONSES ─────────────────────────────────────────────────
-# RESPONSES = {
-#     "welcome": "Hi! Instant answer ready—ask me anything!",
-#     "greeting": ["Greetings, what can I fetch?"],
-#     "unknown": "I don't know.",
-#     "exit": "Bye! Come back any time.",
-#     "error": "Error occurred—please try again."
-# }
-# GREETINGS = {"hi", "hello", "hey", "yo"}
-
-# # ─── CACHING SNIPPET RETRIEVAL ────────────────────────────────────────────
-# @lru_cache(maxsize=128)
-# def get_snippets(question: str) -> str:
-#     return retriever.invoke(question)
-
-# # ─── MAIN INTERACTIVE LOOP ───────────────────────────────────────────────
-# def main():
-#     print("Assistant:", RESPONSES["welcome"])
-#     while True:
-#         try:
-#             question = input("You: ").strip()
-#         except (EOFError, KeyboardInterrupt):
-#             print("Assistant:", RESPONSES["exit"])
-#             break
-#         if not question:
-#             continue
-
-#         ql = question.lower()
-#         if ql in ("q", "quit", "exit"):
-#             print("Assistant:", RESPONSES["exit"])
-#             break
-
-#         # Handle greetings
-#         if any(greet in ql for greet in GREETINGS):
-#             msg = random.choice(RESPONSES["greeting"])
-#             print("Assistant:", msg)
-#             continue
-
-#         # Retrieve snippets with timing (optional)
-#         start = time.perf_counter()
-#         snippets = get_snippets(question)
-#         # elapsed_ms = (time.perf_counter() - start) * 1000
-#         # print(f"(retrieval: {elapsed_ms:.2f}ms)")
-
-#         if not snippets:
-#             print("Assistant:", RESPONSES["unknown"])
-#             continue
-
-#         # Generate answer
-#         try:
-#             answer = chain.invoke({"reviews": snippets, "question": question})
-#         except Exception:
-#             print("Assistant:", RESPONSES["error"])
-#             continue
-
-#         print("Assistant:", answer)
-
-# if __name__ == "__main__":
-#     main()
-
-
 # main.py
+import os
 import sys
 import random
 import time
+import threading
+import itertools
+from datetime import datetime
 from functools import lru_cache
+
 from langchain_ollama.llms import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
 from vector import retriever
 
-# ─── MODEL SETUP ─────────────────────────────────────────────────────────
-model = OllamaLLM(
-    model="llama3.2",
-    temperature=0.0
-)
+# ─── MODEL & PROMPT SETUP ─────────────────────────────────────────────────
+model = OllamaLLM(model="llama3.2", temperature=0.0)
 
-# ─── PROMPT TEMPLATE ─────────────────────────────────────────────────────
-template = """
-Answer only from these snippets. If you don't know, say "I don't know."
+template = '''
+You are a {tone} virtual assistant. Use ONLY the snippets below—do NOT invent new information.
+Speak naturally and clearly. If you don’t know the answer, apologize and say so.
 
-SNIPPETS:
+--- SNIPPETS ---
 {reviews}
 
-QUESTION:
+--- QUESTION ---
 {question}
 
-ANSWER:
-"""
+Assistant:
+'''
 prompt = ChatPromptTemplate.from_template(template)
 chain = prompt | model
 
-# ─── PREDEFINED RESPONSES ─────────────────────────────────────────────────
-RESPONSES = {
-    "welcome": "Hi! Instant answer ready—ask me anything!",
-    "greeting": ["Greetings, what can I fetch?"],
-    "unknown": "I don't know.",
-    "exit": "Bye! Come back any time.",
-    "error": "Error occurred—please try again."
+# ─── STATE & RESPONSES ────────────────────────────────────────────────────
+user_tone  = "friendly"  # or “professional” if you add that feature
+RESP = {
+    "welcome":  "🤖 Hello! I’m here 24/7—ask me anything.",
+    "greeting": ["👋 Hi there!", "😊 Hey! What would you like to know?"],
+    "unknown":  "😕 I’m sorry, I don’t know the answer to that.",
+    "exit":     "👋 Goodbye!",
+    "error":    "⚠️ Something went wrong—please try again.",
+    "decline":  "👍 Okay."
 }
-GREETINGS = {"hi", "hello", "hey", "yo"}
+GREETINGS = {"hi","hello","hey","yo","greetings"}
+DECLINES  = {"no","nah","nope","stop"}
+BYES      = {"bye","goodbye","see ya","later"}
 
-# ─── CACHING SNIPPET RETRIEVAL ────────────────────────────────────────────
+# ─── VISITOR LOGGING ──────────────────────────────────────────────────────
+LOG_DIR  = "visitors"
+LOG_FILE = os.path.join(LOG_DIR, "questions.txt")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+def log_question(q: str):
+    timestamp = datetime.utcnow().isoformat()
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{timestamp}  {q}\n")
+
+# ─── SNIPPET CACHING ──────────────────────────────────────────────────────
 @lru_cache(maxsize=128)
-def get_snippets(question: str) -> str:
-    return retriever.invoke(question)
+def get_snippets(q: str) -> str:
+    return retriever.invoke(q)
 
-# ─── CORE LOGIC ──────────────────────────────────────────────────────────
-def get_answer(question: str) -> str:
-    ql = question.strip().lower()
-    # Exit command
-    if ql in ("q", "quit", "exit"):
-        return RESPONSES["exit"]
-    # Greeting
-    if any(greet in ql for greet in GREETINGS):
-        return random.choice(RESPONSES["greeting"])
-    # Retrieve snippets
-    snippets = get_snippets(question)
+# ─── FETCH SPINNER ────────────────────────────────────────────────────────
+def spinner(stop_ev):
+    spin = itertools.cycle(['⠁','⠃','⠇','⠧'])
+    while not stop_ev.is_set():
+        sys.stdout.write(f"\r🔍 Fetching {next(spin)} ")
+        sys.stdout.flush()
+        time.sleep(0.1)
+    sys.stdout.write("\r✅ Done fetching!   \n")
+
+# ─── CORE ANSWER LOGIC ─────────────────────────────────────────────────────
+def get_answer(q: str) -> str:
+    lower = q.lower().strip()
+
+    # 1) Bye / exit
+    if lower in BYES or lower in ("q","quit","exit"):
+        return RESP["exit"]
+
+    # 2) Decline
+    if lower in DECLINES:
+        return RESP["decline"]
+
+    # 3) Greeting
+    if any(g in lower for g in GREETINGS):
+        return random.choice(RESP["greeting"])
+
+    # 4) Retrieve snippets
+    snippets = get_snippets(q)
     if not snippets:
-        return RESPONSES["unknown"]
-    # Generate answer
-    try:
-        return chain.invoke({"reviews": snippets, "question": question})
-    except Exception:
-        return RESPONSES["error"]
+        return RESP["unknown"]
 
-# ─── MAIN INTERACTIVE LOOP ───────────────────────────────────────────────
+    # 5) Invoke the model
+    try:
+        ans = chain.invoke({
+            "tone":    user_tone,
+            "reviews": snippets,
+            "question": q
+        }).strip()
+        # If it tries to hallucinate, force unknown
+        if ans.lower().startswith("i’m sorry") or ans.lower().startswith("i don’t know"):
+            return RESP["unknown"]
+        return ans
+    except Exception:
+        return RESP["error"]
+
+# ─── CLI INTERFACE ─────────────────────────────────────────────────────────
 def main():
-    print("Assistant:", RESPONSES["welcome"])
+    print(RESP["welcome"])
     while True:
         try:
-            question = input("You: ").strip()
+            q = input("You: ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("Assistant:", RESPONSES["exit"])
+            print("\n" + RESP["exit"])
             break
-        if not question:
+
+        if not q:
             continue
-        answer = get_answer(question)
-        print("Assistant:", answer)
-        if answer == RESPONSES["exit"]:
+
+        # Log every question
+        log_question(q)
+
+        # Show spinner while retrieving
+        stop = threading.Event()
+        t = threading.Thread(target=spinner, args=(stop,))
+        t.start()
+
+        _ = get_snippets(q)  # warm/cached retrieval
+
+        stop.set()
+        t.join()
+
+        # Compute & print answer
+        answer = get_answer(q)
+        print("Assistant:", answer, "\n")
+
+        if answer == RESP["exit"]:
             break
 
 if __name__ == "__main__":
     main()
-
