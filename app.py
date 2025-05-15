@@ -3,7 +3,8 @@ import os
 import logging
 from uuid import uuid4
 from flask import Flask, request, jsonify, render_template_string, abort, session
-from main import get_answer  # your RAG-strict logic
+
+from main import get_answer  # your existing RAG-strict logic
 
 # ─── FLASK SETUP ─────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -14,16 +15,15 @@ app.logger.setLevel(logging.INFO)
 # ─── VISITOR LOG FOLDER ──────────────────────────────────────────────────
 VISITORS_DIR = "visitors"
 os.makedirs(VISITORS_DIR, exist_ok=True)
-
 def user_log_path() -> str:
-    """Ensure a fresh user_id per session and return their log path."""
+    """Get (or create) a persistent `user_id` in session and return its log filepath."""
     uid = session.get("user_id")
     if not uid:
         uid = str(uuid4())
         session["user_id"] = uid
     return os.path.join(VISITORS_DIR, f"{uid}.txt")
 
-# ─── HTML + CSS + JS FOR FLOATING WIDGET with Typing & Bubble Animation ───
+# ─── INLINE FLOATING CHAT WIDGET ─────────────────────────────────────────
 HTML = """
 <!doctype html>
 <html lang="en"><head>
@@ -31,7 +31,6 @@ HTML = """
   <title>24/7 Virtual Assistant</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; }
-    /* Launcher button */
     #chat-launcher {
       position:fixed; bottom:20px; right:20px;
       background:#007bff; color:#fff; border-radius:50px;
@@ -42,20 +41,16 @@ HTML = """
     #chat-launcher:hover { background:#0056d1; }
     #chat-launcher img { width:32px;height:32px;border-radius:50%;margin-right:8px; }
 
-    /* Chat window */
     #chat-window {
       display:none; position:fixed; bottom:80px; right:20px;
       width:320px; max-height:400px; background:#fff;border:1px solid #ddd;
       border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,0.2);
-      display:flex; flex-direction:column; overflow:hidden; z-index:1000;
+      flex-direction:column; overflow:hidden; z-index:1000;
       transform: scale(0.8); opacity: 0;
       transition: transform .3s ease, opacity .3s ease;
     }
-    #chat-window.show {
-      transform: scale(1); opacity: 1;
-    }
+    #chat-window.show { transform: scale(1); opacity: 1; display:flex; }
 
-    /* Header */
     #chat-header {
       background:#007bff; color:#fff; padding:10px;
       display:flex; justify-content:space-between; align-items:center;
@@ -67,10 +62,8 @@ HTML = """
     }
     #chat-header .close-btn:hover { opacity:1; }
 
-    /* Body */
     #chat-body { flex:1; padding:10px; overflow-y:auto; background:#f7f9fc; }
 
-    /* Messages */
     .message { margin:8px 0; display:flex; }
     .message.user { justify-content:flex-end; }
     .message.bot  { justify-content:flex-start; }
@@ -81,7 +74,6 @@ HTML = """
     .user .bubble { background:#e1f3ff; }
     .bubble:hover { transform: scale(1.02); max-width:85%; }
 
-    /* Input */
     #chat-input { border-top:1px solid #ddd; display:flex; }
     #chat-input input {
       flex:1; border:none; padding:10px; outline:none;
@@ -92,7 +84,6 @@ HTML = """
     }
     #chat-input button:hover { background:#0056d1; }
 
-    /* Typing dots */
     .typing-dot {
       display:inline-block; width:6px; height:6px; margin:0 1px;
       background:#888; border-radius:50%; animation:blink 1s infinite;
@@ -130,7 +121,6 @@ HTML = """
     function toggleChat(show){
       win.classList.toggle('show', show);
     }
-
     launcher.onclick = () => {
       const open = win.classList.contains('show');
       toggleChat(!open);
@@ -141,7 +131,7 @@ HTML = """
       }
     };
     closeBtn.onclick = () => toggleChat(false);
-    window.addEventListener('load', () => setTimeout(() => launcher.click(), 500));
+    window.addEventListener('load', ()=> setTimeout(()=> launcher.click(), 500));
 
     function appendUser(text){
       const msg = document.createElement('div'); msg.className='message user';
@@ -175,7 +165,7 @@ HTML = """
       if (!txt) return;
       appendUser(txt);
       inputEl.value='';
-      typeMessage('bot','');  // placeholder typing
+      typeMessage('bot','');
       try {
         const res = await fetch('/ask',{
           method:'POST',
@@ -190,7 +180,6 @@ HTML = """
         typeMessage('bot','😕 Sorry, something went wrong.');
       }
     }
-
     btn.onclick = sendMessage;
     inputEl.addEventListener('keypress', e => { if(e.key==='Enter') sendMessage(); });
   </script>
@@ -200,33 +189,32 @@ HTML = """
 # ─── ROUTES ──────────────────────────────────────────────────────────────
 @app.route('/')
 def index():
-    # issue a fresh user_id each page load
-    session["user_id"] = str(uuid4())
+    session["user_id"] = session.get("user_id") or str(uuid4())
     return render_template_string(HTML)
 
 @app.route('/ask', methods=['POST'])
 def ask_route():
     data = request.get_json(force=True)
-    q    = data.get('question','').strip()
-    if not q:
-        abort(400,'Question required')
+    question = data.get('question','').strip()
+    if not question:
+        abort(400, 'Question required')
 
-    app.logger.info(f"🔍 Received question: {q!r}")
-    # log per-visitor
-    with open(user_log_path(),'a') as f:
-        f.write(q + "\n")
+    app.logger.info(f"🔍 Received question: {question!r}")
+    with open(user_log_path(), "a", encoding="utf-8") as f:
+        f.write(question + "\n")
 
     try:
-        ans = get_answer(q)
+        answer = get_answer(question)
     except Exception as e:
         app.logger.error(f"Error in get_answer: {e}", exc_info=True)
-        ans = "😕 I’m sorry, something went wrong."
-    return jsonify(answer=ans)
+        answer = "😕 I’m sorry, something went wrong."
+
+    return jsonify(answer=answer)
 
 @app.route('/health')
 def health():
     return jsonify(status='healthy')
 
-if __name__=='__main__':
+if __name__ == '__main__':
     print("🚀 Starting AI assistant at http://127.0.0.1:5001")
     app.run(host='0.0.0.0', port=5001, debug=True)
