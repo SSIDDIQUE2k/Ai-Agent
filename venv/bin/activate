@@ -35,7 +35,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV=/Users/shazibsiddique/code/projects/partnerlinQ/plq-ai-agent/venv
+VIRTUAL_ENV=/Users/shazibsiddique/code/projects/partnerlinQ/angular-ai-agent-v2/ai-agent/venv
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

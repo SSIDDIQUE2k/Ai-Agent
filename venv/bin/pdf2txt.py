@@ -1,4 +1,4 @@
-#!/Users/shazibsiddique/code/projects/partnerlinQ/plq-ai-agent/venv/bin/python3.11
+#!/Users/shazibsiddique/code/projects/partnerlinQ/angular-ai-agent-v2/ai-agent/venv/bin/python3.11
 """A command line tool for extracting text and images from PDF and
 output it to plain text, html, xml or tags.
 """

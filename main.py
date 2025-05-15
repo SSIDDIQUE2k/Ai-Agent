@@ -2,38 +2,39 @@
 import os
 import sys
 import random
-import time
 import threading
 import itertools
 import re
 from datetime import datetime
 from functools import lru_cache
 
+from flask import Flask, request, jsonify, session, abort  # if you ever run this as a micro-service
+from langchain.chains import LLMChain
 from langchain_ollama.llms import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
-from vector import retriever
+
+from vector import retriever   # your RAG retriever, returns a string of snippets
 
 # ─── MODEL & PROMPT SETUP ────────────────────────────────────────────────
 model = OllamaLLM(model="llama3.2", temperature=0.0)
-
-template = '''
+template = """
 You are a {tone} virtual assistant. Use ONLY the snippets below—do NOT invent new information.
 Speak naturally and clearly. If you don’t know the answer, apologize and say so.
 Always keep your answer to one or two sentences.
 
 --- SNIPPETS ---
-{reviews}
+{snippets}
 
 --- QUESTION ---
 {question}
 
 Assistant:
-'''
+"""
 prompt = ChatPromptTemplate.from_template(template)
-chain  = prompt | model
+chain  = LLMChain(llm=model, prompt=prompt)
 
-# ─── STATE & RESPONSES ───────────────────────────────────────────────────
-user_tone     = "friendly"
+# ─── CONSTANTS & CANNED RESPONSES ────────────────────────────────────────
+user_tone    = "friendly"
 RESP = {
     "welcome":  "🤖 Hello! I’m here 24/7—ask me anything.",
     "greeting": ["👋 Hi there!", "😊 Hey! What would you like to know?"],
@@ -41,48 +42,21 @@ RESP = {
     "unknown":  "😕 I’m sorry, I don’t know the answer to that.",
     "exit":     "👋 Goodbye!",
     "error":    "⚠️ Something went wrong—please try again.",
-    "decline":  "👍 Okay."
 }
-GREETINGS     = {"hi", "hello", "hey", "yo", "greetings"}
-AFFIRMATIVES  = {"yes", "yep", "sure", "ok", "okay", "please"}
-DECLINES      = {"no", "nah", "nope", "stop"}
-BYES          = {"bye", "goodbye", "see ya", "later"}
+GREETINGS    = {"hi", "hello", "hey", "yo", "greetings"}
+AFFIRMATIVES = {"yes", "yep", "sure", "ok", "okay", "please"}
+DECLINES     = {"no", "nah", "nope", "stop"}
+BYES         = {"bye", "goodbye", "see ya", "later"}
 
-# ─── VISITOR LOGGING ──────────────────────────────────────────────────────
-LOG_DIR  = "visitors"
-LOG_FILE = os.path.join(LOG_DIR, "questions.txt")
-os.makedirs(LOG_DIR, exist_ok=True)
-
-def log_question(q: str):
-    ts = datetime.utcnow().isoformat()
-    with open(LOG_FILE, "a") as f:
-        f.write(f"{ts}  {q}\n")
-
-# ─── SNIPPET CACHING ──────────────────────────────────────────────────────
-@lru_cache(maxsize=128)
-def get_snippets(q: str) -> str:
-    return retriever.invoke(q)
-
-# ─── FETCH SPINNER ───────────────────────────────────────────────────────
-def spinner(stop_ev):
-    for c in itertools.cycle(['⠁','⠃','⠇','⠧']):
-        if stop_ev.is_set():
-            break
-        sys.stdout.write(f"\r🔍 Fetching {c} ")
-        sys.stdout.flush()
-        time.sleep(0.1)
-    sys.stdout.write("\r✅ Done fetching!   \n")
-
-# ─── HELPER: TRUNCATE TO TWO SENTENCES ──────────────────────────────────
 def truncate_to_two_sentences(text: str) -> str:
-    parts = re.split(r'(?<=[\.\?\!])\s+', text.strip())
+    parts = re.split(r"(?<=[\.\?\!])\s+", text.strip())
     return " ".join(parts[:2]).strip()
 
-# ─── CORE ANSWER LOGIC ────────────────────────────────────────────────────
 def get_answer(q: str) -> str:
     lower = q.lower().strip()
 
-    if lower in BYES or lower in ("q","quit","exit"):
+    # quick replies
+    if lower in BYES:
         return RESP["exit"]
     if lower in DECLINES:
         return RESP["decline"]
@@ -91,19 +65,25 @@ def get_answer(q: str) -> str:
     if any(g in lower for g in GREETINGS):
         return random.choice(RESP["greeting"])
 
-    snippets = get_snippets(q)
+    # fetch your RAG snippets (a single string)
+    snippets = retriever.invoke(q)
     if not snippets:
         return RESP["unknown"]
 
+    # call the chain correctly!
     try:
-        resp = chain.invoke({"tone": user_tone, "reviews": snippets, "question": q}).strip()
-        if resp.lower().startswith(("i’m sorry","i don’t know","i dont know")):
+        llm_out = chain.predict(
+            tone=user_tone,
+            snippets=snippets,
+            question=q
+        ).strip()
+        if llm_out.lower().startswith(("i’m sorry", "i don’t know", "i dont know")):
             return RESP["unknown"]
-        return truncate_to_two_sentences(resp)
-    except:
+        return truncate_to_two_sentences(llm_out)
+    except Exception:
         return RESP["error"]
 
-# ─── CLI INTERFACE ─────────────────────────────────────────────────────────
+# If you’re running this as a CLI:
 def main():
     print(RESP["welcome"])
     while True:
@@ -115,28 +95,14 @@ def main():
         if not q:
             continue
 
-        log_question(q)
-        lower = q.lower().strip()
-
-        # Only show spinner if this is a "real" question requiring RAG
-        is_quick_reply = (
-            lower in BYES or lower in DECLINES or lower in AFFIRMATIVES
-            or any(g in lower for g in GREETINGS)
-        )
-        answer = None
-
-        if is_quick_reply:
-            # no spinner for greetings/yes/no/bye
+        if any(tok in q.lower() for tok in BYES|DECLINES|AFFIRMATIVES|GREETINGS):
             answer = get_answer(q)
         else:
-            # show spinner while LLM retrieves & generates
-            stop = threading.Event()
-            t = threading.Thread(target=spinner, args=(stop,))
+            stop_ev = threading.Event()
+            t = threading.Thread(target=lambda: spinner(stop_ev), args=(stop_ev,))
             t.start()
-
             answer = get_answer(q)
-
-            stop.set()
+            stop_ev.set()
             t.join()
 
         print("Assistant:", answer, "\n")

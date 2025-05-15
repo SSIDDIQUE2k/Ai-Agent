@@ -1,4 +1,4 @@
-#!/Users/shazibsiddique/code/projects/partnerlinQ/plq-ai-agent/venv/bin/python3.11
+#!/Users/shazibsiddique/code/projects/partnerlinQ/angular-ai-agent-v2/ai-agent/venv/bin/python3.11
 # -*- coding: utf-8 -*-
 import re
 import sys
