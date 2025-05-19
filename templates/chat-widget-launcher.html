@@ -1,0 +1,68 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat Widget Launcher</title>
+  <meta name="viewport" content="width=350, initial-scale=1">
+  <style>
+    body { margin:0; font-family: 'Segoe UI', Arial, sans-serif; }
+    #ai-chat-launcher { position:fixed; bottom:32px; right:32px; z-index:99999; }
+    #ai-chat-popover {
+      display:flex; align-items:center; position:absolute; bottom:60px; right:0;
+      background:#fff; border-radius:20px; padding:20px 28px;
+      box-shadow:0 4px 24px rgba(0,0,0,0.15); font-size:1.15em;
+      transition: opacity 0.3s;
+    }
+    #ai-chat-popover img { width:48px; height:48px; border-radius:50%; margin-right:16px; }
+    #ai-chat-btn {
+      background:#2563eb; color:#fff; border:none; border-radius:28px;
+      padding:14px 28px; display:flex; align-items:center; font-size:1.15em;
+      box-shadow:0 2px 8px rgba(0,0,0,0.12); cursor:pointer; gap:10px;
+    }
+    #ai-chat-iframe {
+      display:none; position:fixed; bottom:100px; right:32px; width:350px; height:500px;
+      border:none; border-radius:16px; box-shadow:0 4px 24px rgba(0,0,0,0.15); z-index:99999; background:#fff;
+    }
+    #ai-chat-close {
+      display:none; position:fixed; bottom:600px; right:32px; z-index:100000;
+      background:#fff; border:none; border-radius:50%; width:36px; height:36px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.12); font-size:1.5em; cursor:pointer;
+      align-items:center; justify-content:center;
+    }
+  </style>
+</head>
+<body>
+  <div id="ai-chat-launcher">
+    <div id="ai-chat-popover">
+      <img src="https://randomuser.me/api/portraits/women/44.jpg">
+      <span style="color:#222;">Hi there, have a<br>question? <b>Text us here.</b></span>
+    </div>
+    <button id="ai-chat-btn">
+      <svg width="24" height="24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 8h10M7 12h6"/></svg>
+      <b>Text us</b>
+    </button>
+  </div>
+  <iframe id="ai-chat-iframe" src="/chat-widget"></iframe>
+  <button id="ai-chat-close">×</button>
+  <script>
+    // Show popover for 4 seconds on page load
+    window.addEventListener('DOMContentLoaded', function() {
+      var popover = document.getElementById('ai-chat-popover');
+      setTimeout(function(){ popover.style.opacity = 0; setTimeout(function(){ popover.style.display = 'none'; }, 300); }, 4000);
+    });
+    // Open chat on button click
+    document.getElementById('ai-chat-btn').onclick = function() {
+      document.getElementById('ai-chat-iframe').style.display = 'block';
+      document.getElementById('ai-chat-close').style.display = 'flex';
+      document.getElementById('ai-chat-popover').style.display = 'none';
+      this.style.display = 'none';
+    };
+    // Close chat
+    document.getElementById('ai-chat-close').onclick = function() {
+      document.getElementById('ai-chat-iframe').style.display = 'none';
+      document.getElementById('ai-chat-btn').style.display = 'flex';
+      this.style.display = 'none';
+    };
+  </script>
+</body>
+</html>  -->
