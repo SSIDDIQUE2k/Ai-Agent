@@ -2,217 +2,118 @@
 import os
 import sys
 import random
+import time
 import threading
 import itertools
 import re
-import logging
 from datetime import datetime
 from functools import lru_cache
-from typing import Optional, Dict, Any
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
-from flask import Flask, request, jsonify, session, abort  # if you ever run this as a micro-service
 from langchain_ollama.llms import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough
-from werkzeug.exceptions import BadRequest
-from langchain_core.documents import Document
-
-from vector import retriever   # your RAG retriever, returns a string of snippets
-
-# ─── LOGGING SETUP ───────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('app.log'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+from vector import retriever
 
 # ─── MODEL & PROMPT SETUP ────────────────────────────────────────────────
-try:
-    model = OllamaLLM(
-        model="llama3.2",
-        temperature=0.0,
-        num_ctx=2048,  # Optimize context window
-        num_thread=4,  # Use multiple threads
-        repeat_penalty=1.1,  # Slightly reduce repetition
-        top_k=40,  # Optimize token selection
-        top_p=0.9  # Optimize probability threshold
-    )
-    template = """
-    You are a {tone} virtual assistant. Use ONLY the snippets below—do NOT invent new information.
-    Speak naturally and clearly, as if you're having a friendly conversation.
-    If the user asks a 5W question (who, what, where, when, why, or how), answer based on the PDF data provided.
-    If you don't know the answer, apologize and say so.
-    Always keep your answer to one or two sentences.
+model = OllamaLLM(model="llama3.2", temperature=0.0)
 
-    --- SNIPPETS ---
-    {snippets}
+template = '''
+You are a {tone} virtual assistant. Use ONLY the snippets below—do NOT invent new information.
+Speak naturally and clearly. If you don’t know the answer, apologize and say so.
+Always keep your answer to one or two sentences.
 
-    --- QUESTION ---
-    {question}
+--- SNIPPETS ---
+{reviews}
 
-    Assistant:
-    """
-    prompt = ChatPromptTemplate.from_template(template)
-    
-    # Create a chain using the new RunnableSequence approach
-    chain = (
-        {"tone": lambda _: user_tone, "snippets": lambda q: "\n\n".join([d.page_content for d in retriever.invoke(q)]), "question": RunnablePassthrough()}
-        | prompt
-        | model
-    )
-except Exception as e:
-    logger.error(f"Failed to initialize model: {e}")
-    raise
+--- QUESTION ---
+{question}
 
-# ─── CONSTANTS & CANNED RESPONSES ────────────────────────────────────────
-user_tone = "friendly"
+Assistant:
+'''
+prompt = ChatPromptTemplate.from_template(template)
+chain  = prompt | model
+
+# ─── STATE & RESPONSES ───────────────────────────────────────────────────
+user_tone     = "friendly"
 RESP = {
-    "welcome": "🤖 Hello! I'm here 24/7—ask me anything.",
+    "welcome":  "🤖 Hello! I’m here 24/7—ask me anything.",
     "greeting": ["👋 Hi there!", "😊 Hey! What would you like to know?"],
-    "affirm": "👍 Great! What would you like help with?",
-    "unknown": "😕 I'm sorry, I don't have that info. Can I help you with something else?",
-    "exit": "👋 Goodbye!",
-    "error": "⚠️ Something went wrong—please try again.",
-    "invalid_input": "⚠️ Please provide a valid question.",
-    "rate_limit": "⚠️ Too many requests. Please wait a moment.",
+    "affirm":   "👍 Great! What would you like help with?",
+    "unknown":  "😕 I’m sorry, I don’t know the answer to that.",
+    "exit":     "👋 Goodbye!",
+    "error":    "⚠️ Something went wrong—please try again.",
+    "decline":  "👍 Okay."
 }
-GREETINGS = {"hi", "hello", "hey", "yo", "greetings"}
-AFFIRMATIVES = {"yes", "yep", "sure", "ok", "okay", "please"}
-DECLINES = {"no", "nah", "nope", "stop"}
-BYES = {"bye", "goodbye", "see ya", "later"}
-GRATITUDES = {"thanks", "thank you", "thx", "thank u","ty","awsome"}
+GREETINGS     = {"hi", "hello", "hey", "yo", "greetings"}
+AFFIRMATIVES  = {"yes", "yep", "sure", "ok", "okay", "please"}
+DECLINES      = {"no", "nah", "nope", "stop"}
+BYES          = {"bye", "goodbye", "see ya", "later"}
 
-# Rate limiting with improved performance
-RATE_LIMIT = 10  # requests per minute
-request_history: Dict[str, list] = {}
-CLEANUP_INTERVAL = 60  # seconds
+# ─── VISITOR LOGGING ──────────────────────────────────────────────────────
+LOG_DIR  = "visitors"
+LOG_FILE = os.path.join(LOG_DIR, "questions.txt")
+os.makedirs(LOG_DIR, exist_ok=True)
 
-def cleanup_old_requests():
-    """Periodically clean up old requests."""
-    now = datetime.now()
-    for user_id in list(request_history.keys()):
-        request_history[user_id] = [
-            t for t in request_history[user_id]
-            if (now - t).total_seconds() < 60
-        ]
-        if not request_history[user_id]:
-            del request_history[user_id]
+def log_question(q: str):
+    ts = datetime.utcnow().isoformat()
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{ts}  {q}\n")
 
-def is_rate_limited(user_id: str) -> bool:
-    """Check if user has exceeded rate limit with optimized cleanup."""
-    now = datetime.now()
-    if user_id not in request_history:
-        request_history[user_id] = []
-    
-    # Cleanup old requests
-    if random.random() < 0.1:  # 10% chance to cleanup
-        cleanup_old_requests()
-    
-    # Remove requests older than 1 minute
-    request_history[user_id] = [
-        t for t in request_history[user_id]
-        if (now - t).total_seconds() < 60
-    ]
-    
-    if len(request_history[user_id]) >= RATE_LIMIT:
-        return True
-    
-    request_history[user_id].append(now)
-    return False
+# ─── SNIPPET CACHING ──────────────────────────────────────────────────────
+@lru_cache(maxsize=128)
+def get_snippets(q: str) -> str:
+    return retriever.invoke(q)
 
-def sanitize_input(text: str) -> str:
-    """Sanitize user input with optimized regex."""
-    return re.sub(r'[<>]', '', text).strip()
+# ─── FETCH SPINNER ───────────────────────────────────────────────────────
+def spinner(stop_ev):
+    for c in itertools.cycle(['⠁','⠃','⠇','⠧']):
+        if stop_ev.is_set():
+            break
+        sys.stdout.write(f"\r🔍 Fetching {c} ")
+        sys.stdout.flush()
+        time.sleep(0.1)
+    sys.stdout.write("\r✅ Done fetching!   \n")
 
-@lru_cache(maxsize=1000)
+# ─── HELPER: TRUNCATE TO TWO SENTENCES ──────────────────────────────────
 def truncate_to_two_sentences(text: str) -> str:
-    """Cache the last 1000 responses for better performance."""
-    parts = re.split(r"(?<=[\.\?\!])\s+", text.strip())
+    parts = re.split(r'(?<=[\.\?\!])\s+', text.strip())
     return " ".join(parts[:2]).strip()
 
-# Thread pool for parallel processing
-thread_pool = ThreadPoolExecutor(max_workers=4)
+# ─── CORE ANSWER LOGIC ────────────────────────────────────────────────────
+def get_answer(q: str, user_id: Optional[str] = None) -> str:
+    """
+    q: the user’s question
+    user_id: optional session identifier (unused here, but accepted)
+    """
+    lower = q.lower().strip()
 
-async def process_question(q: str, user_id: str) -> str:
-    """Process question asynchronously."""
+    if lower in BYES or lower in ("q","quit","exit"):
+        return RESP["exit"]
+    if lower in DECLINES:
+        return RESP["decline"]
+    if lower in AFFIRMATIVES:
+        return RESP["affirm"]
+    if any(g in lower for g in GREETINGS):
+        return random.choice(RESP["greeting"])
+
+    snippets = get_snippets(q)
+    if not snippets:
+        return RESP["unknown"]
+
     try:
-        # Input validation
-        if not q or len(q) > 500:
-            logger.warning(f"Invalid input length: {len(q)}")
-            return RESP["invalid_input"]
-        
-        # Rate limiting
-        if is_rate_limited(user_id):
-            logger.warning(f"Rate limit exceeded for user {user_id}")
-            return RESP["rate_limit"]
-        
-        # Sanitize input
-        q = sanitize_input(q)
-        lower = q.lower().strip()
-        
-        # Log the question
-        logger.info(f"Processing question: {q}")
-
-        # If 5W/How question, always answer from PDF (skip canned responses)
-        if re.match(r'^(who|what|where|when|why|how)\\b', lower):
-            pass  # proceed to RAG answer
-        else:
-            if lower in BYES:
-                return RESP["exit"]
-            if lower in DECLINES:
-                return RESP["decline"]
-            if any(g in lower for g in GRATITUDES):
-                return "You're welcome! 😊"
-            if lower in AFFIRMATIVES:
-                return RESP["affirm"]
-            if lower in GREETINGS:
-                return random.choice(RESP["greeting"])
-
-        # Get snippets as Documents
-        snippets_docs = retriever.invoke(q)
-        if not snippets_docs:
-            logger.info(f"No relevant snippets found for: {q}")
-            web_fallback = retriever.invoke_str(q)
-            # If web fallback contains links, prepend a friendly message
-            if "http" in web_fallback:
-                return ("I couldn't find that in my data, but here are some resources that might help you:\n\n" + web_fallback)
-            else:
-                return RESP["unknown"]
-
-        # Call the chain
-        try:
-            llm_out = chain.invoke(q).strip()
-            
-            if llm_out.lower().startswith(("i'm sorry", "i don't know", "i dont know")):
-                return RESP["unknown"]
-                
-            response = truncate_to_two_sentences(llm_out)
-            logger.info(f"Generated response: {response}")
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error in LLM chain: {e}")
-            return RESP["error"]
-            
+        resp = chain.invoke({
+            "tone": user_tone,
+            "reviews": snippets,
+            "question": q
+        }).strip()
+        if resp.lower().startswith(("i’m sorry","i don’t know","i dont know")):
+            return RESP["unknown"]
+        return truncate_to_two_sentences(resp)
     except Exception as e:
-        logger.error(f"Unexpected error in process_question: {e}")
+        # optionally log e to stderr or a logger
         return RESP["error"]
 
-def get_answer(q: str, user_id: str) -> str:
-    """Get answer with improved performance."""
-    try:
-        return asyncio.run(process_question(q, user_id))
-    except Exception as e:
-        logger.error(f"Error in get_answer: {e}")
-        return RESP["error"]
-
-# If you're running this as a CLI:
+# ─── CLI INTERFACE ─────────────────────────────────────────────────────────
 def main():
     print(RESP["welcome"])
     while True:
@@ -224,10 +125,24 @@ def main():
         if not q:
             continue
 
-        if any(tok in q.lower() for tok in BYES|DECLINES|AFFIRMATIVES|GREETINGS):
-            answer = get_answer(q, "cli_user")
+        log_question(q)
+        lower = q.lower().strip()
+
+        # Only show spinner if this is a "real" question requiring RAG
+        is_quick_reply = (
+            lower in BYES or lower in DECLINES or lower in AFFIRMATIVES
+            or any(g in lower for g in GREETINGS)
+        )
+
+        if is_quick_reply:
+            answer = get_answer(q)
         else:
-            answer = get_answer(q, "cli_user")
+            stop = threading.Event()
+            t = threading.Thread(target=spinner, args=(stop,))
+            t.start()
+            answer = get_answer(q)
+            stop.set()
+            t.join()
 
         print("Assistant:", answer, "\n")
         if answer == RESP["exit"]:
