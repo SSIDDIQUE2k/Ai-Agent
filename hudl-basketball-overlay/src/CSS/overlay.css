@@ -242,7 +242,7 @@ body {
 #team1Panel { left: 4px; }
 #team2Panel { left: 96px; }
 
-/* logo cell: darkened so logos and text stay readable on any team color */
+/* logo cell: transparent, so the logo sits directly on the team-colored glass panel */
 .teamImageContainer {
   position: absolute;
   top: 0;
@@ -254,29 +254,20 @@ body {
 #team1ImageContainer { left: 4px; }
 #team2ImageContainer { left: 236px; }
 
-.teamImageContainer:before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(10, 12, 16, 0.35);
-}
-
 .teamImage {
   position: absolute;
-  left: 6px;
-  top: 6px;
-  width: 48px;
-  height: 48px;
+  left: 4px;
+  top: 4px;
+  width: 52px;
+  height: 52px;
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
 }
 
-#imageBorderTeam1 { left: 64px; }
-#imageBorderTeam2 { left: 235px; }
+/* no divider between logo and abbreviation: they share one panel */
+#imageBorderTeam1 { left: 64px; display: none; }
+#imageBorderTeam2 { left: 235px; display: none; }
 
 /* abbreviation (abbr + logo mode) */
 .teamAbbr {

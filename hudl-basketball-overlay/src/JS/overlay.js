@@ -697,7 +697,7 @@ function applyTeamColor(team, color) {
     $panel.css("background-color", "");
   } else {
     $accent.css("background-color", color);
-    var tint = colorWithAlpha(color, 0.32);
+    var tint = colorWithAlpha(color, 0.40);
     $panel.css("background-color", tint == null ? "" : tint);
   }
 }
@@ -1258,7 +1258,7 @@ function updateGlobalData(data) {
       if (lastTeam1Logo == null || lastTeam1Logo == "") {
         $("#team1Image").css("background-image", "").hide();
       } else {
-        scaleAndApplyImage(lastTeam1Logo, 48, 48, "contain", "team1Image", true);
+        scaleAndApplyImage(lastTeam1Logo, 52, 52, "contain", "team1Image", true);
       }
     }
   }
@@ -1272,7 +1272,7 @@ function updateGlobalData(data) {
       if (lastTeam2Logo == null || lastTeam2Logo == "") {
         $("#team2Image").css("background-image", "").hide();
       } else {
-        scaleAndApplyImage(lastTeam2Logo, 48, 48, "contain", "team2Image", true);
+        scaleAndApplyImage(lastTeam2Logo, 52, 52, "contain", "team2Image", true);
       }
     }
   }
