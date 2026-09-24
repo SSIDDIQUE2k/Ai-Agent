@@ -78,6 +78,7 @@ cd hudl-basketball-overlay
 python3 -m http.server 8765 --bind 127.0.0.1 &
 NODE_PATH=$(npm root -g) node test/run.js        # needs the playwright npm package and Chromium
 NODE_PATH=$(npm root -g) node test/thumbnail.js  # re-renders thumbnail/*.png
+test/build_pto.sh                                # rebuilds the .pto with the original archive's entry order and metadata
 ```
 
 The harness loads `test/frame.html` (a 1920x1080 mock frame with the overlay at its `position.json` location),
