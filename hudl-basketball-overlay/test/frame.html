@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>1920x1080 test frame</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0b0d10; }
+  #court {
+    position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+    background:
+      repeating-linear-gradient(100deg, rgba(255,255,255,0.035) 0 60px, rgba(0,0,0,0.05) 60px 120px),
+      radial-gradient(ellipse at 50% 35%, #6a4a35 0%, #3d2a1f 45%, #1a1310 100%);
+  }
+  #line { position: absolute; left: 0; right: 0; top: 700px; height: 3px; background: rgba(255,255,255,0.18); }
+  #bright { position: absolute; left: 380px; top: 880px; width: 420px; height: 200px; background: rgba(255,255,255,0.22); }
+  /* position.json: 926x94, x centered, y 25px from the bottom */
+  #overlay {
+    position: absolute; left: 497px; top: 961px; width: 926px; height: 94px;
+    border: 0; background: transparent;
+  }
+</style>
+</head>
+<body>
+  <div id="court"></div>
+  <div id="line"></div>
+  <div id="bright"></div>
+  <iframe id="overlay" src="../src/overlay.html" allowtransparency="true"></iframe>
+</body>
+</html>

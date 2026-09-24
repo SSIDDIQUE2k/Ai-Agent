@@ -1,0 +1,158 @@
+<html>
+	<head>
+		<meta charset="utf-8">
+		<script src="JS/jquery-1.8.3.min.js"></script>
+		<script src="JS/jquery-ui.js"></script>
+		<script src="JS/bridgelessincludes.js"></script>
+		<script src="JS/overlayUtils.js"></script>
+		<script src="JS/overlay.js"></script>
+
+		<link rel="stylesheet" type="text/css" href="CSS/overlay.css">
+	</head>
+
+	<body>
+		<!--
+			Basketball scoreboard lower third (926 x 94).
+			Layout: [network logo] [AWAY logo / abbr / score] [game clock + period | shot clock] [HOME score / abbr / logo]
+
+			Every id and class below is bound by JS/overlay.js and Production Truck data keys.
+			Do not rename ids or classes; visual changes belong in CSS/overlay.css.
+		-->
+		<div id="overlay-container">
+
+			<div id="overlay-wrap">
+
+				<!-- optional popup / message bar above the scoreboard -->
+				<div id="popup-container">
+					<div id="popup-text">Popup</div>
+				</div>
+
+				<div id="shadowPopUp" class="shadowDivider"></div>
+
+				<div id="main-structure">
+					<div id="networkShadow" class="shadowDivider"></div>
+
+					<!-- optional network / custom logo cell -->
+					<div id="network-background">
+						<div id="network-logo"></div>
+					</div>
+
+					<div id="center">
+
+						<!-- AWAY -->
+						<div id="team1" class="team">
+							<div id="team1Container" class="teamContainer">
+								<div id="team1Accent" class="teamAccent"></div>
+
+								<div id="team1ImageContainer" class="teamImageContainer">
+									<div id="team1Image" class="teamImage"></div>
+								</div>
+
+								<div id="imageBorderTeam1" class="shadowDivider"></div>
+
+								<div id="team1Abbr" class="teamAbbr">AWAY</div>
+								<div id="team1Name" class="teamName">AWAY</div>
+
+								<div id="possessionArrow1" class="possessionArrow"></div>
+
+								<div id="team1-foul-container" class="foul-container">
+									<div id="team1-foul-count" class="foul-count"></div>
+								</div>
+
+								<div id="bonusText1" class="bonusText"></div>
+
+								<div id="scoreBorderTeam1" class="shadowDivider"></div>
+
+								<div id="team1ScoreBackground" class="teamScoreBackground">
+									<div id="team1Score" class="teamScore">0</div>
+								</div>
+
+								<div id="timeout1Container" class="timeoutContainer">
+									<div id="team1Timeout1" class="timeout teamTimeout1"></div>
+									<div id="team1Timeout2" class="timeout teamTimeout2"></div>
+									<div id="team1Timeout3" class="timeout teamTimeout3"></div>
+									<div id="team1Timeout4" class="timeout teamTimeout4"></div>
+									<div id="team1Timeout5" class="timeout teamTimeout5"></div>
+									<div id="team1Timeout6" class="timeout teamTimeout6"></div>
+								</div>
+							</div>
+						</div> <!-- end of team1 -->
+
+						<!-- HOME (mirrored) -->
+						<div id="team2" class="team">
+							<div id="team2Container" class="teamContainer">
+								<div id="team2Accent" class="teamAccent"></div>
+
+								<div id="team2ScoreBackground" class="teamScoreBackground">
+									<div id="team2Score" class="teamScore">0</div>
+								</div>
+
+								<div id="timeout2Container" class="timeoutContainer">
+									<div id="team2Timeout1" class="timeout teamTimeout1"></div>
+									<div id="team2Timeout2" class="timeout teamTimeout2"></div>
+									<div id="team2Timeout3" class="timeout teamTimeout3"></div>
+									<div id="team2Timeout4" class="timeout teamTimeout4"></div>
+									<div id="team2Timeout5" class="timeout teamTimeout5"></div>
+									<div id="team2Timeout6" class="timeout teamTimeout6"></div>
+								</div>
+
+								<div id="scoreBorderTeam2" class="shadowDivider"></div>
+
+								<div id="possessionArrow2" class="possessionArrow"></div>
+
+								<div id="team2Abbr" class="teamAbbr">HOME</div>
+								<div id="team2Name" class="teamName">HOME</div>
+
+								<div id="team2-foul-container" class="foul-container">
+									<div id="team2-foul-count" class="foul-count"></div>
+								</div>
+
+								<div id="bonusText2" class="bonusText"></div>
+
+								<div id="imageBorderTeam2" class="shadowDivider"></div>
+
+								<div id="team2ImageContainer" class="teamImageContainer">
+									<div id="team2Image" class="teamImage"></div>
+								</div>
+							</div>
+						</div> <!-- end of team2 -->
+
+						<!-- team-colored message layer (3 POINTER / TIMEOUT), positioned over one team block -->
+						<div id="animationLayer">
+							<div id="animationMessage"></div>
+						</div>
+
+					</div> <!-- end of center -->
+
+					<!-- CLOCK block: game clock stacked over period, shot clock in its own cell -->
+					<div id="periodTimeContainer" class="timeContainer">
+						<div id="timeBorder" class="shadowDivider"></div>
+
+						<div id="timeContainer">
+							<div id="gameTime">20:00</div>
+						</div>
+
+						<div id="periodContainer">
+							<div id="period">1st</div>
+						</div>
+
+						<div id="periodBorder" class="shadowDivider"></div>
+
+						<div id="shotClockContainer">
+							<div id="shotClockBorder" class="shadowDivider"></div>
+							<div id="shotClock">30</div>
+						</div>
+					</div> <!-- end of period and time -->
+
+					<!-- replaces the clock block for HALF / FINAL style periods -->
+					<div id="hiddenContainer" class="timeContainer">
+						<div id="periodHidden">HALF</div>
+					</div>
+
+					<div id="baseLine" class="colorBar"></div>
+				</div> <!-- end of main-structure -->
+			</div> <!-- end of overlay-wrap -->
+
+		</div> <!-- end of overlay-container -->
+	</body>
+</html>
