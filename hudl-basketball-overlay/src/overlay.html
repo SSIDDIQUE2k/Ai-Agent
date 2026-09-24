@@ -12,13 +12,13 @@
 
 	<body>
 		<!--
-			Basketball scoreboard lower third (926 x 94).
-			Layout: [network logo] [AWAY logo / abbr / score] [game clock + period | shot clock] [HOME score / abbr / logo]
+			Basketball scoreboard lower third (1110 x 94).
+			Layout: [school bookend] [network logo] [AWAY logo / abbr / score] [game clock + period | shot clock] [HOME score / abbr / logo] [school bookend]
 
 			Every id and class below is bound by JS/overlay.js and Production Truck data keys.
 			Do not rename ids or classes; visual changes belong in CSS/overlay.css.
 		-->
-		<div id="overlay-container">
+		<div id="overlay-container" class="theme-bc">
 
 			<div id="overlay-wrap">
 
@@ -30,6 +30,13 @@
 				<div id="shadowPopUp" class="shadowDivider"></div>
 
 				<div id="main-structure">
+
+					<!-- school branding bookend (left) -->
+					<div id="bookendLeft" class="bookend">
+						<div id="bookendStripeLeft" class="bookendStripe"></div>
+						<div id="bookendLogo1" class="bookendLogo"></div>
+					</div>
+
 					<div id="networkShadow" class="shadowDivider"></div>
 
 					<!-- optional network / custom logo cell -->
@@ -43,6 +50,7 @@
 						<div id="team1" class="team">
 							<div id="team1Container" class="teamContainer">
 								<div id="team1Accent" class="teamAccent"></div>
+								<div id="team1Panel" class="teamPanel"></div>
 
 								<div id="team1ImageContainer" class="teamImageContainer">
 									<div id="team1Image" class="teamImage"></div>
@@ -68,6 +76,12 @@
 								</div>
 
 								<div id="timeout1Container" class="timeoutContainer">
+									<div class="timeoutSlot slot1"></div>
+									<div class="timeoutSlot slot2"></div>
+									<div class="timeoutSlot slot3"></div>
+									<div class="timeoutSlot slot4"></div>
+									<div class="timeoutSlot slot5"></div>
+									<div class="timeoutSlot slot6"></div>
 									<div id="team1Timeout1" class="timeout teamTimeout1"></div>
 									<div id="team1Timeout2" class="timeout teamTimeout2"></div>
 									<div id="team1Timeout3" class="timeout teamTimeout3"></div>
@@ -82,12 +96,19 @@
 						<div id="team2" class="team">
 							<div id="team2Container" class="teamContainer">
 								<div id="team2Accent" class="teamAccent"></div>
+								<div id="team2Panel" class="teamPanel"></div>
 
 								<div id="team2ScoreBackground" class="teamScoreBackground">
 									<div id="team2Score" class="teamScore">0</div>
 								</div>
 
 								<div id="timeout2Container" class="timeoutContainer">
+									<div class="timeoutSlot slot1"></div>
+									<div class="timeoutSlot slot2"></div>
+									<div class="timeoutSlot slot3"></div>
+									<div class="timeoutSlot slot4"></div>
+									<div class="timeoutSlot slot5"></div>
+									<div class="timeoutSlot slot6"></div>
 									<div id="team2Timeout1" class="timeout teamTimeout1"></div>
 									<div id="team2Timeout2" class="timeout teamTimeout2"></div>
 									<div id="team2Timeout3" class="timeout teamTimeout3"></div>
@@ -140,6 +161,7 @@
 
 						<div id="shotClockContainer">
 							<div id="shotClockBorder" class="shadowDivider"></div>
+							<div id="shotClockBox"></div>
 							<div id="shotClock">30</div>
 						</div>
 					</div> <!-- end of period and time -->
@@ -147,6 +169,12 @@
 					<!-- replaces the clock block for HALF / FINAL style periods -->
 					<div id="hiddenContainer" class="timeContainer">
 						<div id="periodHidden">HALF</div>
+					</div>
+
+					<!-- school branding bookend (right) -->
+					<div id="bookendRight" class="bookend">
+						<div id="bookendLogo2" class="bookendLogo"></div>
+						<div id="bookendStripeRight" class="bookendStripe"></div>
 					</div>
 
 					<div id="baseLine" class="colorBar"></div>

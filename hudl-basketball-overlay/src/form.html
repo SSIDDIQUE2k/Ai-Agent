@@ -1,5 +1,6 @@
 <html>
 	<head>
+		<meta charset="utf-8">
 		<script src="JS/jquery-1.8.3.min.js"></script>
 		<script src="JS/bridgelessincludes.js"></script>
 		<script src="JS/form.js"></script>
@@ -13,6 +14,40 @@
 			<div id="title">Basketball Scoreboard</div>
 
 			<br/>
+
+			<!-- Theme -->
+			<div class="section">
+				<div id="theme-container">Theme:&nbsp;
+					<select id="theme-select">
+						<option value='bc' selected="selected">Brooklyn College (maroon and gold)</option>
+						<option value='neutral'>Neutral broadcast (dark)</option>
+					</select>
+					<br><br>
+				</div> <!--end of theme-container -->
+			</div>
+
+			<!-- School logo bookends at both ends of the scoreboard -->
+			<div class="section">
+				<div id="bookend-container">School Logo Bookends:&nbsp;
+					<select id="bookend-select">
+						<option value='home' selected="selected">Home Team Logo (from control panel)</option>
+						<option value='away'>Away Team Logo (from control panel)</option>
+						<option value='custom'>Custom Logo File</option>
+						<option value='off'>Off</option>
+					</select>
+
+					<div id="bookend-custom-container" class="color-logo-container">
+					<div id="bookend-logo-preview" class="logo-preview"></div>
+					<div id="bookend-logo-picker" class="logo-picker">Logo shown at both ends of the scoreboard.<br>
+						<em>Transparent PNG recommended</em><br>
+						<button id="bookend-logo" onclick="bridge.fileSelectorOverride('bookend-logo')" class="myButton" data-type="fileSelectorButton">Choose File</button>
+						<button id="bookend-logo-clear" onclick="clearFileInput('bookend-logo')" class="myButton">Clear File</button>
+					</div>
+					<p class="clear"></p>
+					</div>
+					<br>
+				</div> <!--end of bookend-container -->
+			</div>
 
 			<!-- Team Full or Team Abbr View-->
 			<div class="section">
@@ -45,18 +80,19 @@
 			</div>
 
 			<!-- Left Side Network Logo Select-->
-			<div class="section">	
+			<div class="section">
 				<div id="left-color-logo-container">Network Select:&nbsp;
 
-					<input type="checkbox" id="left-show"/>
+					<input type="checkbox" id="left-show" checked="checked"/>
 					<label for="left-show"><span></span></label>
-					
+
 					<select id="left-color-logo-select">
-						<option value='custom' selected="selected">Custom Logo</option>
+						<option value='flosports' selected="selected">FloSports Logo (built in)</option>
+						<option value='custom'>Custom Logo</option>
 						<option value='squareNetwork'>Square Network Logo</option>
 						<option value='wideNetwork'>Wide Network Logo</option>
 					</select>
-					
+
 					<div id="left-custom-color-logo-container" class="color-logo-container">
 					<div id="left-custom-logo-preview" class="logo-preview"></div>
 					<div id="left-custom-logo-picker" class="logo-picker">Add Image for Left Side Scoreboard.<br>
@@ -69,13 +105,13 @@
 					<div id="left-custom-color-container" class="color-container">
 						<input type="text" id="left-custom-color" class="setting" data-type="colorPicker" value="#282828" style="display: none;"/>
 					</div>
-					
-					
+
+
 				</div>
-				
+
 			</div>
 			</div>
-			
+
 			<!-- Pip Control-->
 			<div class="section">
 				<div id="pip-container">
@@ -99,7 +135,7 @@
 
 				</div> <!--end of pip-container-->
 				<div class="footer">Please use the control panel for additional customization</div>
-			</div> 
+			</div>
 
 			<!-- Base Bar Color Selector-->
 			<div class="section">
@@ -115,7 +151,7 @@
 
 					<div id="custom-highlight-color-container">
 
-						<input type="text" id="custom-highlight-color" class="setting" data-type="colorPicker" value="#282828" style="display: none;"/>
+						<input type="text" id="custom-highlight-color" class="setting" data-type="colorPicker" value="#EBB700" style="display: none;"/>
 					</div>
 
 				</div>

@@ -96,6 +96,11 @@ function initializeFormData()
 
 	formData['popup-text'] = $('#popup-text').val();
 
+	formData['theme-select'] = $('#theme-select').val();
+
+	formData['bookend-select'] = $('#bookend-select').val();
+	updateBookendSelect();
+
 	formData['team-name-select'] = $('#team-name-select').val();
 
 	formData['left-color-logo-select'] = $('#left-color-logo-select').val();
@@ -147,6 +152,46 @@ function addEventHandlers()
 				sendLocalData(localData);
 				saveOverlay();
 			}
+		}
+	);
+
+	// handle theme events
+	$('#theme-select').change(
+		function()
+		{
+			key = $(this).attr('id');
+			newValue = $(this).val();
+			if (formData[key] != newValue)
+			{
+				formData[key] = newValue;
+
+				localData = {}
+				localData[key] = newValue;
+
+				sendLocalData(localData);
+				saveOverlay();
+			}
+		}
+	);
+
+	// handle school bookend events
+	$('#bookend-select').change(
+		function()
+		{
+			key = $(this).attr('id');
+			newValue = $(this).val();
+			if (formData[key] != newValue)
+			{
+				formData[key] = newValue;
+
+				localData = {};
+				localData[key] = newValue;
+
+				sendLocalData(localData);
+				saveOverlay();
+			}
+
+			updateBookendSelect();
 		}
 	);
 
@@ -323,7 +368,8 @@ function loadDataCompletion(data)
 				element.prop('checked', value);
 			}
 			else if (element.attr('id') == 'popup-text' ||
-				element.attr('id') == 'team-name-select')
+				element.attr('id') == 'team-name-select' ||
+				element.attr('id') == 'theme-select')
 			{
 				element.val(value);
 			}
@@ -337,6 +383,15 @@ function loadDataCompletion(data)
 				updateLeftColorLogoSelect();
 			}
 			else if (key == 'left-custom-logo')
+			{
+				updateImagePreview(key);
+			}
+			else if (element.attr('id') == 'bookend-select')
+			{
+				element.val(value);
+				updateBookendSelect();
+			}
+			else if (key == 'bookend-logo')
 			{
 				updateImagePreview(key);
 			}
@@ -423,6 +478,18 @@ function updateLeftColorLogoSelect()
 	else
 	{
 		$('#left-custom-color-logo-container').hide();
+	}
+}
+
+function updateBookendSelect()
+{
+	if ($('#bookend-select').val() === 'custom')
+	{
+		$('#bookend-custom-container').show();
+	}
+	else
+	{
+		$('#bookend-custom-container').hide();
 	}
 }
 
