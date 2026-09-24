@@ -1,0 +1,129 @@
+<html>
+	<head>
+		<script src="JS/jquery-1.8.3.min.js"></script>
+		<script src="JS/bridgelessincludes.js"></script>
+		<script src="JS/form.js"></script>
+
+		<link rel="stylesheet" type="text/css" href="CSS/form_style.css">
+	</head>
+	<body>
+
+		<div id="form-wrap">
+
+			<div id="title">Basketball Scoreboard</div>
+
+			<br/>
+
+			<!-- Team Full or Team Abbr View-->
+			<div class="section">
+				<div id="teamNameContainer">Team Name Option:&nbsp;
+					<select id="team-name-select">
+						<option value='abbr' selected="selected">Use Team Abbreviation and Logo</option>
+						<option value='full'>Use Team Name without Logo</option>
+					</select>
+					<br><br>
+				</div> <!--end of teamNameContainer -->
+			</div>
+
+			<!-- Popup Container-->
+			<div class="section">
+				<div id="popup-container">
+					<div id="popup-wrap">Popup:
+
+						<input type="checkbox" id="popup-show"/>
+						<label for="popup-show"><span></span></label>
+
+						<div id="popup-details-wrap">
+							<em>Text will reveal above score banner when shown.</em><br>
+							<input type="text" id="popup-text" class="box" data-type="text" style="width: 250px;" maxlength="48" placeholder="48 character max."/>
+						</div>
+					</div>
+
+					<p class="clear"></p>
+
+				</div> <!--end of popup-container-->
+			</div>
+
+			<!-- Left Side Network Logo Select-->
+			<div class="section">	
+				<div id="left-color-logo-container">Network Select:&nbsp;
+
+					<input type="checkbox" id="left-show"/>
+					<label for="left-show"><span></span></label>
+					
+					<select id="left-color-logo-select">
+						<option value='custom' selected="selected">Custom Logo</option>
+						<option value='squareNetwork'>Square Network Logo</option>
+						<option value='wideNetwork'>Wide Network Logo</option>
+					</select>
+					
+					<div id="left-custom-color-logo-container" class="color-logo-container">
+					<div id="left-custom-logo-preview" class="logo-preview"></div>
+					<div id="left-custom-logo-picker" class="logo-picker">Add Image for Left Side Scoreboard.<br>
+						<em>Transparent PNG recommended</em><br>
+						<button id="left-custom-logo" onclick="bridge.fileSelectorOverride('left-custom-logo')" class="myButton" data-type="fileSelectorButton">Choose File</button>
+						<button id="left-custom-logo-clear" onclick="clearFileInput('left-custom-logo')" class="myButton">Clear File</button>
+					</div>
+					<p class="clear"></p>
+
+					<div id="left-custom-color-container" class="color-container">
+						<input type="text" id="left-custom-color" class="setting" data-type="colorPicker" value="#282828" style="display: none;"/>
+					</div>
+					
+					
+				</div>
+				
+			</div>
+			</div>
+			
+			<!-- Pip Control-->
+			<div class="section">
+				<div id="pip-container">
+					<div id="pip-wrap">PIP Clock:
+
+						<input type="checkbox" id="pip-clock-show"/>
+						<label for="pip-clock-show"><span></span></label>
+
+						<div id="pip-details-wrap">
+							<em>This will override the control panel clock for this overlay</em><br>
+							<select id="pipSourceSelect">
+								<option value='none'>None</option>
+							</select>
+							<button id="pipConfigureButton" disabled>Select Source's Region</button>
+						</div>
+
+					</div>
+
+					<p class="clear"></p>
+					<br>
+
+				</div> <!--end of pip-container-->
+				<div class="footer">Please use the control panel for additional customization</div>
+			</div> 
+
+			<!-- Base Bar Color Selector-->
+			<div class="section">
+
+				<div id="highlight-color-container">Base Color:&nbsp;
+
+					<select id="highlight-color-select">
+						<option value='custom' selected="selected">Custom Color</option>
+						<option value='away'>Away Team Color</option>
+						<option value='home'>Home Team Color</option>
+						<option value='global'>Network Color</option>
+					</select>
+
+					<div id="custom-highlight-color-container">
+
+						<input type="text" id="custom-highlight-color" class="setting" data-type="colorPicker" value="#282828" style="display: none;"/>
+					</div>
+
+				</div>
+
+				<br>
+
+			</div>
+		</div>
+
+	</body>
+</html>

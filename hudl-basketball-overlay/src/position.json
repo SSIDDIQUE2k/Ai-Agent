@@ -1,0 +1,21 @@
+{
+	"destination":{
+		"location":{
+			"x":"0",
+			"y":"25"
+		},
+		"size":{
+			"w":"926px",
+			"h":"94px"
+		},
+		"justification":{
+			"x":"center",
+			"y":"bottom"
+		}
+	},
+	"source":{
+		"w":"100%",
+		"h":"100%"
+	},
+	"movable":true
+}

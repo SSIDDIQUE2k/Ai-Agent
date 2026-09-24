@@ -1,0 +1,152 @@
+/**
+ * Basketball Scoreboard configuration form
+ * (element ids and data keys are bound by JS/form.js — do not rename)
+ *
+ * @author Kevin VanderHorst
+ */
+
+body {
+	background:  #24272c;
+	color:       #f2f2f2;
+	font-family: "MyriadWebPro", arial, sans-serif;
+	font-size: 	 13px;
+	line-height: 1.5;
+	margin:      0;
+	padding:     0;
+}
+
+a, a:active, a:visited, a:hover { color: #3aa0d6; }
+em { font-size: 12px; color: #a9afb8; font-style: normal; }
+
+
+#popup-details-wrap,
+#pip-details-wrap {
+	margin-left: 25px;
+	margin-top: 4px;
+}
+
+	#pipSourceSelect, #pipConfigureButton {
+		width: 165px;
+	}
+
+.float { float: right; }
+.clear { clear: both; }
+
+.disabled {
+	opacity: 0.5;
+	pointer-events: none;
+}
+
+#form-wrap {
+	position: absolute;
+	top: 12px;
+	left: 15px;
+	width: 480px;
+}
+
+	#title {
+		font-size: 16px;
+		font-weight: bold;
+		letter-spacing: 0.3px;
+		color: #fff;
+		padding-bottom: 8px;
+		border-bottom: 1px solid #3a3f47;
+	}
+
+	.section {
+		padding: 12px 0 6px 0;
+		border-style: solid;
+		border-width: 1px 0 0 0;
+		border-color: #3a3f47;
+	}
+
+	select, .box {
+		border: 1px solid #454b54;
+		border-radius: 3px;
+		background-color: #31353c;
+		color: #fff;
+		padding: 3px 4px;
+		font-family: inherit;
+		font-size: 12px;
+	}
+
+	.myButton {
+		background-color:#ededed;
+		border-radius:3px;
+		border:1px solid #dcdcdc;
+		display:inline-block;
+		cursor:pointer;
+		color:#555555;
+		font-family: "MyriadWebPro", arial, sans-serif;
+		font-size:12px;
+		font-weight:bold;
+		padding:3px;
+		width: 100px;
+		text-align: center;
+		text-shadow:0px 1px 0px #ffffff;
+		margin: 5px 0px 0px 0px;
+	}
+
+	.myButton:hover {
+		background-color:#dfdfdf;
+	}
+
+	.color-logo-container {
+		margin-left: 25px;
+	}
+
+	.logo-picker {
+		display: inline-block;
+		overflow: hidden;
+		vertical-align: top;
+		width: 250px;
+		height: 60px;
+	}
+
+	.logo-preview {
+		display: inline-block;
+		height: 60px;
+		width: 60px;
+		border-radius: 3px;
+		background-color: #1a1d22;
+		background-repeat: no-repeat!important;
+		background-size: contain!important;
+		background-position: center!important;
+	}
+
+	.color-container {
+		display: inline-block;
+		vertical-align: top;
+		margin: 5px;
+	}
+
+	.color-logo-show + label span {
+		margin-top: 0px!important;
+	}
+
+	input[type="checkbox"] {
+    	display:none;
+	}
+
+	input[type="checkbox"] + label span {
+		float: right;
+	    display: inline-block;
+	    width: 20px;
+	    height: 20px;
+	    padding: 0px;
+	    margin: 10px;
+	    border: 1px solid #3aa0d6;
+	    border-radius: 3px;
+	    background: #1a1d22;
+	    cursor: pointer;
+	}
+
+	input[type="checkbox"]:checked + label span {
+	    background: url('../assets/eye_icon.svg') #1a1d22 left top no-repeat;
+	}
+
+.footer {
+	color: #8a8f97;
+	font-family: "MyriadWebPro-Italic", sans-serif;
+	font-size: 12px;
+}
