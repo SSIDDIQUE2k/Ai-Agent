@@ -324,7 +324,7 @@ async function main() {
   const three = await expectMessageAt(page, ov, t0, 800, "3");
   await snap(page, ov, "extra_3pointer_animation_mid", { wait: 0, frame: true });
   const threeState = await ov.evaluate(() => ({ cls: document.getElementById("animationLayer").className, font: getComputedStyle(document.getElementById("animationMessage")).fontSize }));
-  if (threeState.cls.indexOf("three") < 0 || threeState.cls.indexOf("from-right") < 0 || threeState.font !== "78px" || +three.op < 0.9) { failures++; console.log("[FAIL] 3-pointer swoosh state: " + JSON.stringify(threeState) + " opacity " + three.op); } else console.log("[ok] 3-pointer swoosh: big 3 over the home block");
+  if (threeState.cls.indexOf("three") < 0 || threeState.cls.indexOf("from-right") < 0 || Math.abs(parseFloat(threeState.font) - 78) > 2 || +three.op < 0.9) { failures++; console.log("[FAIL] 3-pointer swoosh state: " + JSON.stringify(threeState) + " opacity " + three.op); } else console.log("[ok] 3-pointer swoosh: big 3 over the home block");
   await page.waitForTimeout(2300);
   await snap(page, ov, "extra_3pointer_done", { wait: 200, expect: { team2Score: "55" }, visible: { animationLayer: false } });
   // away-side 3-pointer sweeps in from the left

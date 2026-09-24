@@ -710,7 +710,7 @@ function animation(messages, color, callback, params, team) {
   var left = team == 2 ? LAYOUT.teamW + LAYOUT.clockW : 0;
 
   $layer.stop(true, true).removeClass("three from-right");
-  $message.stop(true, true).removeClass("swoosh-in swoosh-out").css("opacity", "");
+  $message.stop(true, true).css({ left: "", top: "", "font-size": "", opacity: "" });
 
   function animateNextMessage() {
     if (i >= messages.length) {
@@ -740,41 +740,40 @@ function animation(messages, color, callback, params, team) {
 
 // 3-pointer: team-colored panel over the scoring team's block with a big "3" sweeping across it.
 // Timeline: panel up 200ms, "3" in 340ms, hold ~1.1s, "3" out 320ms, panel down 200ms.
+// All motion is jQuery-driven (left / top / font-size / opacity): CSS transforms and keyframe
+// animations end up on GPU layers that Production Truck's program capture does not include.
 function threePointAnimation(team, color) {
   var $layer = $("#animationLayer");
   var $message = $("#animationMessage");
   var left = team == 2 ? LAYOUT.teamW + LAYOUT.clockW : 0;
+  var fromRight = team == 2;
+  var enterLeft = fromRight ? 170 : -150;   // where the "3" starts (off to the side)
+  var exitLeft = fromRight ? -150 : 170;    // where it leaves
 
   $layer
     .stop(true, true)
     .removeClass("from-right")
     .addClass("three")
-    .toggleClass("from-right", team == 2)
+    .toggleClass("from-right", fromRight)
     .css({ left: left + "px", "background-color": color || "#3a404a" });
 
   $message
     .stop(true, true)
-    .removeClass("swoosh-in swoosh-out")
-    .css({ "font-size": "", top: "" })
     .html("3")
+    .css({ left: enterLeft + "px", top: "6px", "font-size": "44px", opacity: 0 })
     .show();
 
   $layer.show("slide", { direction: "down" }, SLIDE_MS, function () {
-    $message.addClass("swoosh-in");
-
-    setTimeout(function () {
-      $message.removeClass("swoosh-in").addClass("swoosh-out");
-
+    $message.animate({ left: "8px", top: "-16px", fontSize: "78px", opacity: 1 }, 340, "swing", function () {
       setTimeout(function () {
-        // keep the "3" invisible while the panel drops: the slide re-parents the layer,
-        // which would restart the CSS animation and flash the digit back in
-        $message.removeClass("swoosh-out").css("opacity", "0");
-        $layer.hide("slide", { direction: "down" }, SLIDE_MS, function () {
-          $layer.removeClass("three from-right");
-          $message.css("opacity", "").html("");
+        $message.animate({ left: exitLeft + "px", fontSize: "92px", opacity: 0 }, 320, "swing", function () {
+          $layer.hide("slide", { direction: "down" }, SLIDE_MS, function () {
+            $layer.removeClass("three from-right");
+            $message.css({ left: "", top: "", "font-size": "", opacity: "" }).html("");
+          });
         });
-      }, 340);
-    }, 1100);
+      }, 1100);
+    });
   });
 }
 
@@ -806,12 +805,15 @@ function updateScoreSize() {
   renderScore(2);
 }
 
+// quick size bump on a score change (jQuery-driven; no CSS transform, see threePointAnimation)
 function pulseScore(team) {
   var $score = $("#team" + team + "Score");
-  $score.addClass("pulse");
-  setTimeout(function () {
-    $score.removeClass("pulse");
-  }, 180);
+  $score
+    .stop(true, true)
+    .animate({ fontSize: "43px" }, 90, "swing")
+    .animate({ fontSize: "38px" }, 130, "swing", function () {
+      $score.css("font-size", "");
+    });
 }
 
 // "20:00" -> "20:00", "05:32" -> "5:32", "00:32" -> ":32", "00:09.5" -> ":09.5"
