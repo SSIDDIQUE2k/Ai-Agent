@@ -21,7 +21,7 @@ const OUT = process.env.OUT_DIR || path.join(__dirname, "out");
 fs.mkdirSync(OUT, { recursive: true });
 
 // overlay iframe rectangle inside frame.html
-const OV = { x: 497, y: 961, w: 926, h: 94 };
+const OV = { x: 405, y: 961, w: 1110, h: 94 };
 const CLIP = { x: OV.x - 20, y: OV.y - 40, width: OV.w + 40, height: OV.h + 60 };
 
 const errors = [];
@@ -59,6 +59,8 @@ const BASE_GLOBAL = {
 };
 
 const BASE_LOCAL = {
+  "theme-select": "neutral",
+  "bookend-select": "off",
   "team-name-select": "abbr",
   "popup-show": false,
   "popup-text": "",
@@ -110,7 +112,7 @@ function inspect() {
     }
   });
 
-  const boxIds = ["team1ScoreBackground", "team2ScoreBackground", "team1Score", "team2Score", "periodTimeContainer", "timeContainer", "gameTime", "periodContainer", "shotClockContainer", "team1Abbr", "team2Abbr", "team1Name", "team2Name", "possessionArrow1", "possessionArrow2", "team1-foul-count", "team2-foul-count", "bonusText1", "bonusText2", "timeout1Container", "timeout2Container", "network-background", "popup-container", "baseLine", "hiddenContainer", "team1ImageContainer", "team2ImageContainer", "team1", "team2", "center"];
+  const boxIds = ["team1ScoreBackground", "team2ScoreBackground", "team1Score", "team2Score", "periodTimeContainer", "timeContainer", "gameTime", "periodContainer", "shotClockContainer", "team1Abbr", "team2Abbr", "team1Name", "team2Name", "possessionArrow1", "possessionArrow2", "team1-foul-count", "team2-foul-count", "bonusText1", "bonusText2", "timeout1Container", "timeout2Container", "network-background", "popup-container", "baseLine", "hiddenContainer", "team1ImageContainer", "team2ImageContainer", "team1", "team2", "center", "bookendLeft", "bookendRight", "bookendLogo1", "bookendLogo2", "animationLayer"];
   boxIds.forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -126,8 +128,8 @@ function inspect() {
       // the hidden network cell parks off to the left by design; only check it when shown
       if (!window.lastShowLeft) return;
     }
-    // the message text slides inside #animationLayer, which clips it (overflow: hidden)
-    if (el.id === "animationMessage") return;
+    // the message layer and its text slide in and out; #overlay-container clips them
+    if (el.id === "animationMessage" || el.id === "animationLayer") return;
     const r = el.getBoundingClientRect();
     if (r.left < c.left - 0.5 || r.right > c.right + 0.5 || r.top < c.top - 0.5 || r.bottom > c.bottom + 0.5) {
       out.outside.push((el.id || el.className) + " " + JSON.stringify(box(el)));
@@ -189,23 +191,20 @@ async function snap(page, ov, name, opts = {}) {
   return r;
 }
 
-// samples the message layer text at a given time (ms) after the triggering update
-let lastTrigger = 0;
-async function expectMessageAt(page, ov, atMs, expected) {
-  const now = Date.now();
-  if (now - lastTrigger > 5000) lastTrigger = now; // first sample after a trigger
-  const waitFor = Math.max(0, atMs - (Date.now() - lastTrigger));
+// samples the message layer text at a given time (ms) after the trigger timestamp t0
+async function expectMessageAt(page, ov, t0, atMs, expected) {
+  const waitFor = Math.max(0, atMs - (Date.now() - t0));
   await page.waitForTimeout(waitFor);
   const r = await ov.evaluate(() => {
     const el = document.getElementById("animationMessage");
     const layer = document.getElementById("animationLayer");
     const vis = getComputedStyle(layer).display !== "none";
-    return { text: el.textContent, font: getComputedStyle(el).fontSize, vis };
+    return { text: el.textContent, font: getComputedStyle(el).fontSize, vis, op: getComputedStyle(el).opacity };
   });
   const ok = r.vis && r.text === expected && r.font !== "0px";
   if (!ok) { failures++; console.log(`[FAIL] message at ${atMs}ms: expected "${expected}", got "${r.text}" (layer visible=${r.vis}, font=${r.font})`); }
-  else console.log(`[ok] message at ${atMs}ms: "${expected}" (${r.font})`);
-  if (atMs >= 1000) lastTrigger = 0;
+  else console.log(`[ok] message at ${atMs}ms: "${expected}" (${r.font}, opacity ${(+r.op).toFixed(2)})`);
+  return r;
 }
 
 function sameBox(a, b) {
@@ -225,10 +224,25 @@ async function main() {
   await ov.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(2200); // initial reveal (debug mode)
 
+  // ---- built-in defaults before any form data: BC theme + FloSports cell ----
+  const defaults = await ov.evaluate(() => ({
+    theme: document.getElementById("overlay-container").className,
+    netBg: getComputedStyle(document.getElementById("network-background")).backgroundColor,
+    netClass: document.getElementById("network-background").className,
+    logo: getComputedStyle(document.getElementById("network-logo")).backgroundImage,
+    base: getComputedStyle(document.getElementById("baseLine")).backgroundColor
+  }));
+  const defaultsOk = defaults.theme.indexOf("theme-bc") >= 0 && defaults.netBg === "rgb(255, 20, 15)" && defaults.netClass.indexOf("net-flosports") >= 0 && defaults.logo.indexOf("flosports.png") >= 0 && defaults.base === "rgb(235, 183, 0)";
+  if (!defaultsOk) { failures++; console.log("[FAIL] built-in defaults: " + JSON.stringify(defaults)); } else console.log("[ok] built-in defaults: BC theme, FloSports cell, gold base bar");
+  await snap(page, ov, "default_state_no_form_data", { frame: true, visible: { "network-background": true, bookendLeft: false, bookendRight: false } });
+
   // ---- initial state ----------------------------------------------------
   await L(ov, BASE_LOCAL);
   await G(ov, BASE_GLOBAL);
   await page.waitForTimeout(1200);
+
+  const slots = await ov.evaluate(() => [1, 2].map((t) => Array.from(document.querySelectorAll(`#timeout${t}Container .timeoutSlot`)).filter((el) => getComputedStyle(el).display !== "none").length));
+  if (slots[0] !== 4 || slots[1] !== 4) { failures++; console.log("[FAIL] timeout slots after 4/4: " + slots.join("/")); } else console.log("[ok] 4 dim timeout slots per team after 4/4");
 
   // Test 1
   const t1 = await snap(page, ov, "test01_0-0_1st_2000_shot30", { frame: true, expect: { team1Score: "0", team2Score: "0", period: "1st", gameTime: "20:00", shotClock: "30" } });
@@ -294,23 +308,33 @@ async function main() {
   // Test 10b — timeout taken (delta 1) triggers the TIMEOUT message then the pulse
   await G(ov, { "team1-timeouts": 4, "team2-timeouts": 4 });
   await page.waitForTimeout(1200);
+  let t0 = Date.now();
   await G(ov, { "team1-timeouts": 3 });
-  await expectMessageAt(page, ov, 350, "TIMEOUT");
+  await expectMessageAt(page, ov, t0, 350, "TIMEOUT");
   await snap(page, ov, "test10b_timeout_animation_mid", { wait: 0, frame: true });
-  await expectMessageAt(page, ov, 1500, "BROOKLYN COLLEGE");
+  await expectMessageAt(page, ov, t0, 1500, "BROOKLYN COLLEGE");
   await page.waitForTimeout(2500);
   await snap(page, ov, "test10c_timeout_animation_done", { wait: 200, visible: { animationLayer: false } });
   const pillsAfter = await ov.evaluate(() => Array.from(document.querySelectorAll("#timeout1Container .timeout")).filter((el) => getComputedStyle(el).display !== "none").length);
   if (pillsAfter !== 3) { failures++; console.log(`[FAIL] after TIMEOUT animation expected 3 pills, got ${pillsAfter}`); } else console.log("[ok] 3 pills after TIMEOUT animation");
 
   // 3-pointer message
+  t0 = Date.now();
   await G(ov, { "team2-score": 55 });
-  await expectMessageAt(page, ov, 350, "3 POINTER");
+  const three = await expectMessageAt(page, ov, t0, 800, "3");
   await snap(page, ov, "extra_3pointer_animation_mid", { wait: 0, frame: true });
-  await expectMessageAt(page, ov, 1500, "FAIRLEIGH DICKINSON");
-  await snap(page, ov, "extra_3pointer_animation_name", { wait: 0 });
-  await page.waitForTimeout(2500);
+  const threeState = await ov.evaluate(() => ({ cls: document.getElementById("animationLayer").className, font: getComputedStyle(document.getElementById("animationMessage")).fontSize }));
+  if (threeState.cls.indexOf("three") < 0 || threeState.cls.indexOf("from-right") < 0 || threeState.font !== "78px" || +three.op < 0.9) { failures++; console.log("[FAIL] 3-pointer swoosh state: " + JSON.stringify(threeState) + " opacity " + three.op); } else console.log("[ok] 3-pointer swoosh: big 3 over the home block");
+  await page.waitForTimeout(2300);
   await snap(page, ov, "extra_3pointer_done", { wait: 200, expect: { team2Score: "55" }, visible: { animationLayer: false } });
+  // away-side 3-pointer sweeps in from the left
+  t0 = Date.now();
+  await G(ov, { "team1-score": 51 });
+  await expectMessageAt(page, ov, t0, 800, "3");
+  await snap(page, ov, "extra_3pointer_away_mid", { wait: 0 });
+  await page.waitForTimeout(2300);
+  await G(ov, { "team1-score": 48 });
+  await page.waitForTimeout(400);
 
   // Test 11 — long abbreviations and long names
   await G(ov, { "team1-abbr": "BKLYNC", "team2-abbr": "FDUKNT" });
@@ -381,11 +405,68 @@ async function main() {
   await snap(page, ov, "extra_highlight_away", { wait: 400 });
   await L(ov, { "highlight-color-select": "custom" });
 
+  // ---- FloSports network cell + themes ----------------------------------
+  await G(ov, { "team1-fouls": 4, "team2-fouls": 7, BNSvalue1: "hide", DBNSvalue1: "hide", BNSvalue2: "show", DBNSvalue2: "hide", "possession-arrow": "team1", "team1-timeouts": 3, "team2-timeouts": 4 });
+  await L(ov, { "left-show": true, "left-color-logo-select": "flosports" });
+  const flo = await snap(page, ov, "round2_flosports_neutral", { wait: 1200, visible: { "network-background": true } });
+  const floState = await ov.evaluate(() => ({
+    bg: getComputedStyle(document.getElementById("network-background")).backgroundColor,
+    logo: document.getElementById("network-logo").getBoundingClientRect().width + "x" + document.getElementById("network-logo").getBoundingClientRect().height,
+    img: getComputedStyle(document.getElementById("network-logo")).backgroundImage.indexOf("flosports.png") >= 0
+  }));
+  if (floState.bg !== "rgb(255, 20, 15)" || floState.logo !== "60x60" || !floState.img) { failures++; console.log("[FAIL] flosports cell: " + JSON.stringify(floState)); } else console.log("[ok] flosports cell red, 60x60 mark");
+  for (const theme of ["bc", "neutral"]) {
+    await L(ov, { "theme-select": theme });
+    const cls = await ov.evaluate(() => document.getElementById("overlay-container").className);
+    const want = theme === "neutral" ? !/theme-/.test(cls) : cls.indexOf("theme-bc") >= 0;
+    if (!want) { failures++; console.log(`[FAIL] theme ${theme}: class="${cls}"`); } else console.log(`[ok] theme ${theme}: class="${cls}"`);
+    await snap(page, ov, `round2_theme_${theme}`, { wait: 400 });
+  }
+
+  // bookends: home / away / custom / off
+  await L(ov, { "theme-select": "bc", "bookend-select": "home" });
+  await snap(page, ov, "round2_bc_bookends_home_flosports", { wait: 1200, frame: true, visible: { bookendLeft: true, bookendRight: true, bookendLogo1: true, bookendLogo2: true } });
+  const bookHome = await ov.evaluate(() => ({
+    l: getComputedStyle(document.getElementById("bookendLogo1")).backgroundImage, r: getComputedStyle(document.getElementById("bookendLogo2")).backgroundImage,
+    left: document.getElementById("bookendLeft").getBoundingClientRect().left, right: document.getElementById("bookendRight").getBoundingClientRect().right
+  }));
+  if (bookHome.l.indexOf("NJCAA") < 0 || bookHome.r.indexOf("NJCAA") < 0 || bookHome.left !== 0 || bookHome.right !== 1110) { failures++; console.log("[FAIL] bookends home: " + JSON.stringify(bookHome)); } else console.log("[ok] bookends show the home logo at both ends, bar spans 0-1110");
+  await L(ov, { "bookend-select": "away" });
+  await snap(page, ov, "round2_bc_bookends_away", { wait: 800 });
+  const bookAway = await ov.evaluate(() => getComputedStyle(document.getElementById("bookendLogo1")).backgroundImage);
+  if (bookAway.indexOf("square.svg") < 0) { failures++; console.log("[FAIL] bookends away: " + bookAway); } else console.log("[ok] bookends switch to the away logo");
+  await L(ov, { "bookend-select": "custom", "bookend-logo": "/test/assets/tall.svg" });
+  await snap(page, ov, "round2_bc_bookends_custom", { wait: 800 });
+  const bookCustom = await ov.evaluate(() => getComputedStyle(document.getElementById("bookendLogo2")).backgroundImage);
+  if (bookCustom.indexOf("tall.svg") < 0) { failures++; console.log("[FAIL] bookends custom: " + bookCustom); } else console.log("[ok] bookends use the custom file");
+  await L(ov, { "bookend-select": "off" });
+  await snap(page, ov, "round2_bc_bookends_off", { wait: 800, visible: { bookendLeft: false, bookendRight: false } });
+
+  // the mockup look: BC theme, home bookends, network cell off
+  await L(ov, { "bookend-select": "home", "left-show": false });
+  await snap(page, ov, "round2_bc_mockup_look", { wait: 1200, frame: true, visible: { bookendLeft: true, "network-background": false } });
+  await G(ov, { "team1-score": 105, "team2-score": 104, period: "OT", "game-time": "00:32", "shot-time": "0:12", BNSvalue1: "show", DBNSvalue1: "show", DBNSvalue2: "show" });
+  await snap(page, ov, "round2_bc_mockup_overtime", { wait: 600 });
+  await G(ov, { period: "final", "team1-score": 78, "team2-score": 82, DBNSvalue1: "hide", DBNSvalue2: "hide" });
+  await snap(page, ov, "round2_bc_mockup_final", { wait: 600 });
+  await G(ov, { period: "2", "team1-score": 52, "team2-score": 48, "game-time": "12:43", "shot-time": "0:24" });
+  await L(ov, { "team-name-select": "full" });
+  await snap(page, ov, "round2_bc_mockup_full_names", { wait: 1400 });
+  await L(ov, { "team-name-select": "abbr", "popup-show": true, "popup-text": "BC Timeout" });
+  await snap(page, ov, "round2_bc_mockup_popup", { wait: 1400, frame: true });
+  await L(ov, { "left-show": true });
+  await snap(page, ov, "round2_bc_everything_on", { wait: 1200, frame: true });
+  await G(ov, { period: "half" });
+  await snap(page, ov, "round2_theme_bc_half", { wait: 600 });
+  await G(ov, { period: "2" });
+  await L(ov, { "popup-show": false, "theme-select": "neutral", "left-show": false, "left-color-logo-select": "custom", "bookend-select": "off" });
+  await page.waitForTimeout(1500);
+
   // overlay off / on cycle (Truck lifecycle events)
   await ov.evaluate(() => $(document).trigger("onOverlayInactive"));
   await snap(page, ov, "extra_overlay_off", { wait: 2500 });
   await ov.evaluate(() => $(document).trigger("onOverlayActive"));
-  await snap(page, ov, "extra_overlay_on_again", { wait: 2600, frame: true, expect: { team1Score: "48", team2Score: "55", period: "3rd" } });
+  await snap(page, ov, "extra_overlay_on_again", { wait: 2600, frame: true, expect: { team1Score: "52", team2Score: "48", period: "2nd" } });
 
   // ---- form.html with a stub bridge ------------------------------------
   const formPage = await context.newPage();
@@ -407,6 +488,12 @@ async function main() {
   await formPage.screenshot({ path: path.join(OUT, "form.png") });
   const formErrors = errors.splice(0);
   if (formErrors.length) { failures++; console.log("[FAIL] form.html: " + formErrors.join(" | ")); } else console.log("[ok] form.html loads with a stub bridge");
+  const formState = await formPage.evaluate(() => ({
+    theme: $("#theme-select").val(), net: $("#left-color-logo-select").val(), show: $("#left-show").prop("checked"),
+    themeSent: formData["theme-select"], customHidden: $("#left-custom-color-logo-container").is(":hidden"),
+    bookend: $("#bookend-select").val(), bookendSent: formData["bookend-select"], bookendCustomHidden: $("#bookend-custom-container").is(":hidden")
+  }));
+  if (formState.theme !== "bc" || formState.net !== "flosports" || formState.show !== true || formState.themeSent !== "bc" || !formState.customHidden || formState.bookend !== "home" || formState.bookendSent !== "home" || !formState.bookendCustomHidden) { failures++; console.log("[FAIL] form defaults: " + JSON.stringify(formState)); } else console.log("[ok] form defaults: theme bc, FloSports selected, network shown, custom picker hidden");
 
   fs.writeFileSync(path.join(OUT, "report.json"), JSON.stringify(report, null, 2));
   await browser.close();

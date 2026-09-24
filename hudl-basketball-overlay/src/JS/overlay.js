@@ -17,24 +17,34 @@ var pendingAnimation = false;
 
 // Geometry (px) — keep in sync with CSS/overlay.css
 var LAYOUT = {
-  containerW: 926, // #overlay-container width
-  networkW: 116,   // optional network / custom logo cell
-  teamW: 300,      // each team block
-  clockW: 210,     // clock well between the teams
-  centerW: 810,    // 2 * teamW + clockW
-  timeTop: 2,      // game clock cell inside the main bar (also the PIP clock rectangle)
+  containerW: 1110, // #overlay-container width
+  bookendW: 92,     // school logo bookend at each end
+  networkW: 116,    // optional network / custom logo cell
+  teamW: 300,       // each team block
+  clockW: 210,      // clock well between the teams
+  centerW: 810,     // 2 * teamW + clockW
+  timeTop: 2,       // game clock cell inside the main bar (also the PIP clock rectangle)
   timeH: 36,
-  timeW: 210,      // game clock width without the shot clock
-  timeWShot: 150   // game clock width with the shot clock shown
+  timeW: 210,       // game clock width without the shot clock
+  timeWShot: 150    // game clock width with the shot clock shown
 };
 
 var SLIDE_MS = 200; // duration of every reveal / hide slide
+
+// Bundled network branding (form option "flosports")
+var FLOSPORTS_RED = "#ff140f";
+var FLOSPORTS_LOGO = "assets/flosports.png";
 
 $(document).ready(function () {
   var includeFilesJS = ["JS/globalDataShim.js", "JS/overlayUtils.js"];
   var includeFilesCSS = [];
 
   initializeDependencies(includeFilesJS, includeFilesCSS);
+
+  // render the built-in defaults (theme, network cell, base bar) before any data arrives
+  applyTheme();
+  updateLeftColorLogo();
+  updateColor();
 
   if (typeof bridge != "undefined") {
     // wait for first local data to display
@@ -68,17 +78,33 @@ $(document).on("pvwAnimation", function () {
 });
 
 // ---------------------------------------------------------------------------
-// Bridge helpers (PIP clock)
+// Geometry helpers
 // ---------------------------------------------------------------------------
+
+// Width of everything currently shown and where #main-structure has to sit so it is centered.
+function visibleGeometry() {
+  var bookends = lastShowBookends ? 2 * LAYOUT.bookendW : 0;
+  var network = lastShowLeft ? LAYOUT.networkW : 0;
+  var visibleWidth = LAYOUT.centerW + network + bookends;
+  var contentLeft = (LAYOUT.containerW - visibleWidth) / 2;     // #overlay-container space
+  var hiddenLead = (lastShowBookends ? 0 : LAYOUT.bookendW) + (lastShowLeft ? 0 : LAYOUT.networkW);
+
+  return {
+    visibleWidth: visibleWidth,
+    contentLeft: contentLeft,
+    mainLeft: contentLeft - hiddenLead,                         // #main-structure left
+    innerLeft: contentLeft + (lastShowBookends ? LAYOUT.bookendW : 0), // popup bar (between bookends)
+    innerWidth: visibleWidth - bookends,
+    baseLineLeft: hiddenLead                                    // inside #main-structure
+  };
+}
 
 // Rectangle of the game clock cell: left in #overlay-container space,
 // top/height inside the main bar (same convention as the original package).
 function pipRect() {
-  var visibleWidth = LAYOUT.centerW + (lastShowLeft ? LAYOUT.networkW : 0);
-  var mainLeft = (LAYOUT.containerW - visibleWidth) / 2 - (lastShowLeft ? 0 : LAYOUT.networkW);
-
+  var g = visibleGeometry();
   return {
-    left: Math.round(mainLeft + LAYOUT.networkW + LAYOUT.teamW),
+    left: Math.round(g.mainLeft + LAYOUT.bookendW + LAYOUT.networkW + LAYOUT.teamW),
     top: LAYOUT.timeTop,
     width: lastShowShotClock ? LAYOUT.timeWShot : LAYOUT.timeW,
     height: LAYOUT.timeH
@@ -105,6 +131,22 @@ function pipSetActive(active) {
   }
 }
 
+// "#rgb" / "#rrggbb" -> "rgba(r,g,b,a)"; anything else returns null
+function colorWithAlpha(color, alpha) {
+  var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(color == null ? "" : color).replace(/\s+/g, ""));
+  if (!m) {
+    return null;
+  }
+  var h = m[1];
+  if (h.length == 3) {
+    h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+  }
+  var r = parseInt(h.substr(0, 2), 16);
+  var g = parseInt(h.substr(2, 2), 16);
+  var b = parseInt(h.substr(4, 2), 16);
+  return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+}
+
 // ---------------------------------------------------------------------------
 // Overlay on / off
 // ---------------------------------------------------------------------------
@@ -126,7 +168,7 @@ function overlayOn() {
 
 function prepAnimatedElements() {
   pendingAnimation = true;
-  $("#popup-container, #network-background, #center, #team1, #team2, #animationLayer").hide();
+  $("#popup-container, #network-background, #center, #team1, #team2, #animationLayer, .bookend").hide();
   $(".teamImageContainer, .teamAbbr, .teamName, .teamScoreBackground, .timeout").hide();
   $("#shadowPopUp, #networkShadow, #baseLine, #periodTimeContainer").hide();
   $("#hiddenContainer").hide();
@@ -154,6 +196,14 @@ function animateMe() {
         .delay(120 * i)
         .fadeIn(150);
     }
+  }
+
+  function revealSideCells() {
+    if (lastShowBookends) {
+      $("#bookendLeft").show("slide", { direction: "right" }, SLIDE_MS);
+      $("#bookendRight").show("slide", { direction: "left" }, SLIDE_MS);
+    }
+    $("#baseLine").show("slide", { direction: "down" }, 150);
   }
 
   updateTeamAbbrs();
@@ -201,10 +251,10 @@ function animateMe() {
           if (lastShowLeft) {
             $("#network-background").show("slide", { direction: "right" }, SLIDE_MS, function () {
               $("#networkShadow").show();
-              $("#baseLine").show("slide", { direction: "down" }, 150);
+              revealSideCells();
             });
           } else {
-            $("#baseLine").show("slide", { direction: "down" }, 150);
+            revealSideCells();
           }
         });
       });
@@ -260,14 +310,14 @@ function overlayCompleted() {
   }
 
   setTimeout(function () {
-    $("#popup-container, #network-background, #team1, #team2, #periodTimeContainer, #shotClockContainer").show();
+    $("#popup-container, #network-background, #team1, #team2, #periodTimeContainer, #shotClockContainer, .bookend").show();
 
     pendingAnimation = false;
 
     jQuery.fx.off = true;
 
     updateTeamType();
-    clockShowHide(); // this calls leftShowHide -> centerOverlay
+    clockShowHide(); // this calls sideCellsShowHide -> centerOverlay
     popupShowHide();
 
     jQuery.fx.off = false;
@@ -276,24 +326,19 @@ function overlayCompleted() {
   }, 250);
 }
 
-// Centers the visible part of the scoreboard (with or without the network cell)
+// Centers the visible part of the scoreboard (bookends / network cell on or off)
 // and keeps the popup bar, the accent bar and the PIP rectangle aligned with it.
 function centerOverlay() {
-  var totalWidth = LAYOUT.containerW;
-  var visibleWidth = LAYOUT.centerW + (lastShowLeft ? LAYOUT.networkW : 0);
-
-  var contentLeft = (totalWidth - visibleWidth) / 2;                         // #overlay-container space
-  var overlayWrapLeft = contentLeft - (lastShowLeft ? 0 : LAYOUT.networkW); // #main-structure left
-  var baseLineLeft = lastShowLeft ? 0 : LAYOUT.networkW;                    // inside #main-structure
+  var g = visibleGeometry();
 
   updatePipOutput();
 
-  var popupProps = { left: contentLeft + "px", width: visibleWidth + "px" };
+  var popupProps = { left: g.innerLeft + "px", width: g.innerWidth + "px" };
 
-  $("#main-structure").animate({ left: overlayWrapLeft + "px" }, SLIDE_MS);
+  $("#main-structure").animate({ left: g.mainLeft + "px" }, SLIDE_MS);
   $("#popup-container").animate(popupProps, SLIDE_MS);
   $("#shadowPopUp").animate(popupProps, SLIDE_MS);
-  $("#baseLine").animate({ left: baseLineLeft + "px", width: visibleWidth + "px" }, SLIDE_MS);
+  $("#baseLine").animate({ left: g.baseLineLeft + "px", width: g.visibleWidth + "px" }, SLIDE_MS);
 }
 
 // ---------------------------------------------------------------------------
@@ -313,7 +358,7 @@ function updateTeamNames() {
 }
 
 // ---------------------------------------------------------------------------
-// Popup, network cell, clock well
+// Popup, side cells (network + bookends), clock well
 // ---------------------------------------------------------------------------
 
 function popupShowHide() {
@@ -332,7 +377,7 @@ function popupShowHide() {
   }
 }
 
-function leftShowHide() {
+function networkShowHide() {
   if (lastShowLeft) {
     $("#network-background").show("slide", { direction: "right" }, SLIDE_MS, function () {
       $("#networkShadow").show();
@@ -341,8 +386,35 @@ function leftShowHide() {
     $("#networkShadow").hide();
     $("#network-background").hide("slide", { direction: "right" }, SLIDE_MS);
   }
+}
 
+// The left bookend sits right before the network cell; when that cell is hidden the
+// bookend moves over to close the gap (the right bookend never moves).
+function positionBookends() {
+  var left = lastShowLeft ? 0 : LAYOUT.networkW;
+  $("#bookendLeft").stop(true, true).animate({ left: left + "px" }, SLIDE_MS);
+}
+
+function bookendsShowHide() {
+  positionBookends();
+  if (lastShowBookends) {
+    $("#bookendLeft").show("slide", { direction: "right" }, SLIDE_MS);
+    $("#bookendRight").show("slide", { direction: "left" }, SLIDE_MS);
+  } else {
+    $("#bookendLeft").hide("slide", { direction: "right" }, SLIDE_MS);
+    $("#bookendRight").hide("slide", { direction: "left" }, SLIDE_MS);
+  }
+}
+
+function sideCellsShowHide() {
+  networkShowHide();
+  bookendsShowHide();
   centerOverlay();
+}
+
+// kept for compatibility with the original package's call sites
+function leftShowHide() {
+  sideCellsShowHide();
 }
 
 // Legacy right-side logo hooks referenced by saved form data from older versions.
@@ -353,7 +425,14 @@ function updateRightColorLogo() {}
 var lastLeftColor = null;
 var lastLeftLogo = null;
 function updateLeftColorLogo() {
-  if (lastLeftColorLogoType == "custom") {
+  var bundledLogo = false;
+
+  if (lastLeftColorLogoType == "flosports") {
+    // built-in network branding shipped inside the package
+    lastLeftColor = FLOSPORTS_RED;
+    lastLeftLogo = FLOSPORTS_LOGO;
+    bundledLogo = true;
+  } else if (lastLeftColorLogoType == "custom") {
     lastLeftColor = lastLeftCustomColor;
     lastLeftLogo = lastLeftCustomLogo;
   } else {
@@ -370,17 +449,67 @@ function updateLeftColorLogo() {
     }
   }
 
+  $("#network-background").toggleClass("net-flosports", bundledLogo);
+
   if (lastLeftColor == null || lastLeftColor == "") {
-    $("#network-background").css("background-color", "");
+    // no color: fall back to the themed bar surface
+    $("#network-background").css({ "background-color": "", "background-image": "" });
   } else {
-    $("#network-background").css("background-color", lastLeftColor);
+    // a chosen color replaces the bar gradient in this cell
+    $("#network-background").css({ "background-color": lastLeftColor, "background-image": "none" });
   }
 
   if (lastLeftLogo == null || lastLeftLogo == "") {
     $("#network-logo").css("background-image", "").hide();
+  } else if (bundledLogo) {
+    // packaged asset: relative path, no bridge scaling needed
+    applyImage(lastLeftLogo, "network-logo", true);
   } else {
     scaleAndApplyImage(lastLeftLogo, 100, 44, "contain", "network-logo", true);
   }
+}
+
+// School logo bookends at both ends: home / away team logo from the control panel,
+// a custom file from the form, or off. Shown only when a logo is available.
+var lastBookendUrl = null;
+var lastShowBookends = false;
+function updateBookends() {
+  var url = null;
+  if (lastBookendSelect == "home") {
+    url = lastTeam2Logo;
+  } else if (lastBookendSelect == "away") {
+    url = lastTeam1Logo;
+  } else if (lastBookendSelect == "custom") {
+    url = lastBookendLogo;
+  }
+  if (url == "") {
+    url = null;
+  }
+
+  if (url != lastBookendUrl) {
+    lastBookendUrl = url;
+    if (url == null) {
+      $(".bookendLogo").css("background-image", "").hide();
+    } else {
+      scaleAndApplyImage(url, 80, 52, "contain", "bookendLogo1", true);
+      scaleAndApplyImage(url, 80, 52, "contain", "bookendLogo2", true);
+    }
+  }
+
+  var show = url != null;
+  if (show != lastShowBookends) {
+    lastShowBookends = show;
+    if (!pendingAnimation) {
+      bookendsShowHide();
+      centerOverlay();
+    }
+  }
+}
+
+// Theme class on the container (CSS/overlay.css): "bc" = Brooklyn College look,
+// anything else = neutral broadcast look.
+function applyTheme() {
+  $("#overlay-container").toggleClass("theme-bc", lastThemeSelect == "bc");
 }
 
 // Applies the clock-well state: game clock, period, shot clock, PIP and HALF/FINAL cover.
@@ -416,7 +545,7 @@ function clockShowHide() {
 
   pipSetActive(!!lastShowPipClock);
 
-  leftShowHide();
+  sideCellsShowHide();
 }
 
 // ---------------------------------------------------------------------------
@@ -499,6 +628,22 @@ function updateTimeouts(team) {
   }
 }
 
+// Dim slots behind the pills: as many as the team has had this game (max value seen).
+var maxTimeouts = { 1: 0, 2: 0 };
+function updateTimeoutSlots(team, value) {
+  var n = parseInt(value, 10);
+  if (isNaN(n) || n < 0 || n > 6) {
+    return;
+  }
+  if (n > maxTimeouts[team]) {
+    maxTimeouts[team] = n;
+  }
+  var max = maxTimeouts[team];
+  $("#timeout" + team + "Container .timeoutSlot").each(function (index) {
+    $(this).toggle(index < max);
+  });
+}
+
 function updatePossessionArrow() {
   var $away = $("#possessionArrow1");
   var $home = $("#possessionArrow2");
@@ -543,24 +688,29 @@ function updateFouls(team, fouls) {
   }
 }
 
+// team color -> edge stripe, and a translucent tint on the glass panel behind logo + abbr
 function applyTeamColor(team, color) {
   var $accent = $("#team" + team + "Accent");
-  var $logoCell = $("#team" + team + "ImageContainer");
+  var $panel = $("#team" + team + "Panel");
   if (color == null || color == "") {
     $accent.css("background-color", "");
-    $logoCell.css("background-color", "");
+    $panel.css("background-color", "");
   } else {
     $accent.css("background-color", color);
-    $logoCell.css("background-color", color);
+    var tint = colorWithAlpha(color, 0.32);
+    $panel.css("background-color", tint == null ? "" : tint);
   }
 }
 
-// Team-colored message layer (3 POINTER / TIMEOUT) over the given team's block.
+// Team-colored message layer (TIMEOUT + team name) over the given team's block.
 function animation(messages, color, callback, params, team) {
   var i = 1;
   var $layer = $("#animationLayer");
   var $message = $("#animationMessage");
   var left = team == 2 ? LAYOUT.teamW + LAYOUT.clockW : 0;
+
+  $layer.stop(true, true).removeClass("three from-right");
+  $message.stop(true, true).removeClass("swoosh-in swoosh-out").css("opacity", "");
 
   function animateNextMessage() {
     if (i >= messages.length) {
@@ -586,6 +736,46 @@ function animation(messages, color, callback, params, team) {
   $layer.css({ left: left + "px", "background-color": color || "#3a404a" });
   $message.html(messages[0]).show();
   $layer.show("slide", { direction: "down" }, SLIDE_MS, animateNextMessage);
+}
+
+// 3-pointer: team-colored panel over the scoring team's block with a big "3" sweeping across it.
+// Timeline: panel up 200ms, "3" in 340ms, hold ~1.1s, "3" out 320ms, panel down 200ms.
+function threePointAnimation(team, color) {
+  var $layer = $("#animationLayer");
+  var $message = $("#animationMessage");
+  var left = team == 2 ? LAYOUT.teamW + LAYOUT.clockW : 0;
+
+  $layer
+    .stop(true, true)
+    .removeClass("from-right")
+    .addClass("three")
+    .toggleClass("from-right", team == 2)
+    .css({ left: left + "px", "background-color": color || "#3a404a" });
+
+  $message
+    .stop(true, true)
+    .removeClass("swoosh-in swoosh-out")
+    .css({ "font-size": "", top: "" })
+    .html("3")
+    .show();
+
+  $layer.show("slide", { direction: "down" }, SLIDE_MS, function () {
+    $message.addClass("swoosh-in");
+
+    setTimeout(function () {
+      $message.removeClass("swoosh-in").addClass("swoosh-out");
+
+      setTimeout(function () {
+        // keep the "3" invisible while the panel drops: the slide re-parents the layer,
+        // which would restart the CSS animation and flash the digit back in
+        $message.removeClass("swoosh-out").css("opacity", "0");
+        $layer.hide("slide", { direction: "down" }, SLIDE_MS, function () {
+          $layer.removeClass("three from-right");
+          $message.css("opacity", "").html("");
+        });
+      }, 340);
+    }, 1100);
+  });
 }
 
 function getScoreName(scoreDelta) {
@@ -743,7 +933,10 @@ function updateColor() {
 // ---------------------------------------------------------------------------
 
 var lastTeamNameSelect = "full";
-var lastLeftColorLogoType = "custom";
+var lastThemeSelect = "bc";
+var lastBookendSelect = "home";
+var lastBookendLogo = null;
+var lastLeftColorLogoType = "flosports";
 var lastLeftCustomColor = null;
 var lastLeftCustomLogo = null;
 var lastRightColorLogoType = "custom";
@@ -751,10 +944,10 @@ var lastRightCustomColor = null;
 var lastRightCustomLogo = null;
 var lastPopupText = null;
 var lastHighlightColorSelect = "custom";
-var lastCustomHighlightColor = "#282828";
+var lastCustomHighlightColor = "#EBB700";
 var lastGlobalNetworkColor = "#282828";
 var lastShowPopup = false;
-var lastShowLeft = false;
+var lastShowLeft = true;
 var lastShowRightColorLogo = false;
 var lastShowPipClock = false;
 function updateLocalData(data) {
@@ -784,7 +977,7 @@ function updateLocalData(data) {
     var showLeft = data["left-show"];
     if (showLeft != lastShowLeft) {
       lastShowLeft = showLeft;
-      leftShowHide();
+      sideCellsShowHide();
     }
   }
 
@@ -815,6 +1008,27 @@ function updateLocalData(data) {
 
   if (leftColorLogoUpdate) {
     updateLeftColorLogo();
+  }
+
+  var bookendUpdate = false;
+  if (data["bookend-select"] !== undefined) {
+    var bookendSelect = data["bookend-select"];
+    if (bookendSelect != lastBookendSelect) {
+      lastBookendSelect = bookendSelect;
+      bookendUpdate = true;
+    }
+  }
+
+  if (data["bookend-logo"] !== undefined) {
+    var bookendLogo = data["bookend-logo"];
+    if (bookendLogo != lastBookendLogo) {
+      lastBookendLogo = bookendLogo;
+      bookendUpdate = true;
+    }
+  }
+
+  if (bookendUpdate) {
+    updateBookends();
   }
 
   if (data["right-show"] !== undefined) {
@@ -873,6 +1087,14 @@ function updateLocalData(data) {
 
   if (highlightUpdate) {
     updateColor();
+  }
+
+  if (data["theme-select"] !== undefined) {
+    var themeSelect = data["theme-select"];
+    if (themeSelect != lastThemeSelect) {
+      lastThemeSelect = themeSelect;
+      applyTheme();
+    }
   }
 
   if (data["team-name-select"] !== undefined) {
@@ -1024,10 +1246,12 @@ function updateGlobalData(data) {
     }
   }
 
+  var logoUpdate = false;
   if (data["saved_team1-logo"] !== undefined) {
     var team1Logo = setImageUrl(data["saved_team1-logo"]["value"]);
     if (team1Logo != lastTeam1Logo) {
       lastTeam1Logo = team1Logo;
+      logoUpdate = true;
 
       if (lastTeam1Logo == null || lastTeam1Logo == "") {
         $("#team1Image").css("background-image", "").hide();
@@ -1041,6 +1265,7 @@ function updateGlobalData(data) {
     var team2Logo = setImageUrl(data["saved_team2-logo"]["value"]);
     if (team2Logo != lastTeam2Logo) {
       lastTeam2Logo = team2Logo;
+      logoUpdate = true;
 
       if (lastTeam2Logo == null || lastTeam2Logo == "") {
         $("#team2Image").css("background-image", "").hide();
@@ -1048,6 +1273,10 @@ function updateGlobalData(data) {
         scaleAndApplyImage(lastTeam2Logo, 48, 48, "contain", "team2Image", true);
       }
     }
+  }
+
+  if (logoUpdate) {
+    updateBookends();
   }
 
   var teamAbbrUpdated = false;
@@ -1133,7 +1362,7 @@ function updateGlobalData(data) {
 
       var scoreName1 = getScoreName(delta1);
       if (scoreName1 != null) {
-        animation([scoreName1, lastTeam1Name || lastTeam1Abbr || ""], lastTeam1Color, null, null, 1);
+        threePointAnimation(1, lastTeam1Color);
       }
     }
   }
@@ -1153,7 +1382,7 @@ function updateGlobalData(data) {
 
       var scoreName2 = getScoreName(delta2);
       if (scoreName2 != null) {
-        animation([scoreName2, lastTeam2Name || lastTeam2Abbr || ""], lastTeam2Color, null, null, 2);
+        threePointAnimation(2, lastTeam2Color);
       }
     }
   }
@@ -1164,6 +1393,7 @@ function updateGlobalData(data) {
       var timeoutDelta1 = lastTeam1Timeouts - team1Timeouts;
 
       lastTeam1Timeouts = team1Timeouts;
+      updateTimeoutSlots(1, team1Timeouts);
 
       if (timeoutDelta1 == 1) {
         animation(["TIMEOUT", lastTeam1Name || lastTeam1Abbr || ""], lastTeam1Color, updateTimeouts, [1, true], 1);
@@ -1179,6 +1409,7 @@ function updateGlobalData(data) {
       var timeoutDelta2 = lastTeam2Timeouts - team2Timeouts;
 
       lastTeam2Timeouts = team2Timeouts;
+      updateTimeoutSlots(2, team2Timeouts);
 
       if (timeoutDelta2 == 1) {
         animation(["TIMEOUT", lastTeam2Name || lastTeam2Abbr || ""], lastTeam2Color, updateTimeouts, [2, true], 2);

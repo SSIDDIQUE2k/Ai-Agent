@@ -1,10 +1,13 @@
 /* ==========================================================================
-   Basketball scoreboard lower third — 926 x 94
+   Basketball scoreboard lower third — 1110 x 94
    Geometry (main bar, left to right):
-     network 116 | AWAY 300 | CLOCK 210 | HOME 300       (= 926 with network, 810 without)
+     bookend 92 | network 116 | AWAY 300 | CLOCK 210 | HOME 300 | bookend 92
    Rows: popup 0–30 | main bar 30–90 | highlight accent 90–94
    The same numbers live in the LAYOUT object at the top of JS/overlay.js.
    Ids / classes are bound by JS/overlay.js — do not rename them.
+
+   Themes: #overlay-container.theme-bc (Brooklyn College, default) or no class (neutral).
+   Brooklyn College Bulldogs: maroon #882345 (PMS 208 C), gold #EBB700 (PMS 142 C).
    ========================================================================== */
 
 @font-face {
@@ -32,14 +35,14 @@ body {
 
 #overlay-container {
   position: absolute;
-  width: 926px;
+  width: 1110px;
   height: 94px;
   overflow: hidden;
 }
 
 #overlay-wrap {
   position: absolute;
-  width: 926px;
+  width: 1110px;
   height: 94px;
 }
 
@@ -47,16 +50,17 @@ body {
   position: absolute;
   top: 30px;
   left: 0;
-  width: 926px;
+  width: 1110px;
   height: 60px;
   z-index: 0;
 }
 
-/* shared dark broadcast surface */
+/* shared dark broadcast surface (neutral theme) */
 .team,
 #periodTimeContainer,
 #hiddenContainer,
-#network-background {
+#network-background,
+.bookend {
   background-color: #1a1e24;
   background-image: linear-gradient(to bottom, #262b33 0%, #1a1e24 55%, #14171c 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -78,7 +82,7 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  width: 926px;
+  width: 1110px;
   height: 30px;
   z-index: 2;
   background-color: #23272e;
@@ -96,7 +100,7 @@ body {
   box-sizing: border-box;
   height: 30px;
   line-height: 30px;
-  padding: 0 16px;
+  padding: 0 24px;
   font-size: 15px;
   letter-spacing: 0.6px;
   text-transform: uppercase;
@@ -108,17 +112,53 @@ body {
 #shadowPopUp {
   top: 29px;
   height: 1px;
-  width: 926px;
+  width: 1110px;
   background-color: rgba(255, 255, 255, 0.12);
   z-index: 3;
 }
+
+/* --- School bookends (left / right ends) ---------------------------------- */
+
+.bookend {
+  position: absolute;
+  top: 0;
+  width: 92px;
+  height: 60px;
+  overflow: hidden;
+  z-index: 1;
+}
+#bookendLeft { left: 0; }
+#bookendRight { left: 1018px; }
+
+.bookendStripe {
+  position: absolute;
+  top: 0;
+  width: 6px;
+  height: 60px;
+  background-color: #c9ced6;
+}
+#bookendStripeLeft { left: 0; }
+#bookendStripeRight { left: 86px; }
+
+.bookendLogo {
+  position: absolute;
+  top: 4px;
+  width: 80px;
+  height: 52px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  display: none;
+}
+#bookendLogo1 { left: 8px; }
+#bookendLogo2 { left: 4px; }
 
 /* --- Network logo cell --------------------------------------------------- */
 
 #network-background {
   position: absolute;
   top: 0;
-  left: 0;
+  left: 92px;
   width: 116px;
   height: 60px;
   z-index: 0;
@@ -126,7 +166,7 @@ body {
 }
 
 #networkShadow {
-  left: 115px;
+  left: 207px;
 }
 
 #network-logo {
@@ -140,12 +180,20 @@ body {
   background-position: center;
 }
 
+/* built-in FloSports mark: the red square fills the cell height and blends into the red cell */
+#network-background.net-flosports #network-logo {
+  left: 28px;
+  top: 0;
+  width: 60px;
+  height: 60px;
+}
+
 /* --- Center: two team blocks with the clock well between them ------------- */
 
 #center {
   position: absolute;
   top: 0;
-  left: 116px;
+  left: 208px;
   width: 810px;
   height: 60px;
   z-index: 1;
@@ -177,17 +225,32 @@ body {
   width: 4px;
   height: 60px;
   background-color: #3a404a;
+  z-index: 2;
 }
 #team1Accent { left: 0; }
 #team2Accent { left: 296px; }
 
-/* logo cell: team color tinted down by a dark overlay so logos and text stay readable */
+/* translucent team-color glass behind logo + abbreviation (tint set by JS) */
+.teamPanel {
+  position: absolute;
+  top: 0;
+  width: 200px;
+  height: 60px;
+  background-color: rgba(255, 255, 255, 0.03);
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.25) 100%);
+  -webkit-transition: background-color 300ms ease;
+  transition: background-color 300ms ease;
+}
+#team1Panel { left: 4px; }
+#team2Panel { left: 96px; }
+
+/* logo cell: darkened so logos and text stay readable on any team color */
 .teamImageContainer {
   position: absolute;
   top: 0;
   width: 60px;
   height: 60px;
-  background-color: #1a1e24;
+  background-color: transparent;
   overflow: hidden;
 }
 #team1ImageContainer { left: 4px; }
@@ -200,7 +263,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(16, 19, 24, 0.72);
+  background-color: rgba(10, 12, 16, 0.35);
 }
 
 .teamImage {
@@ -247,7 +310,7 @@ body {
 #team1Name { left: 12px; text-align: left; }
 #team2Name { left: 100px; text-align: right; }
 
-/* possession: small CSS triangle beside the score, pointing at the team */
+/* possession: small triangle between abbreviation and score, pointing at the score */
 .possessionArrow {
   position: absolute;
   top: 15px;
@@ -259,11 +322,11 @@ body {
 }
 #possessionArrow1 {
   left: 188px;
-  border-right: 8px solid rgba(255, 255, 255, 0.92);
+  border-left: 8px solid rgba(255, 255, 255, 0.92);
 }
 #possessionArrow2 {
   left: 104px;
-  border-left: 8px solid rgba(255, 255, 255, 0.92);
+  border-right: 8px solid rgba(255, 255, 255, 0.92);
 }
 
 /* secondary row: fouls + bonus under the abbreviation */
@@ -352,7 +415,7 @@ body {
   transform: scale(1.1);
 }
 
-/* timeout pills under the score */
+/* timeout pills under the score; dim slots show how many the team started with */
 .timeoutContainer {
   position: absolute;
   top: 48px;
@@ -362,20 +425,23 @@ body {
 #timeout1Container { left: 214px; }
 #timeout2Container { left: 10px; }
 
-.timeout {
+.timeout,
+.timeoutSlot {
   position: absolute;
   top: 0;
   width: 10px;
   height: 4px;
   border-radius: 2px;
-  background-color: #fff;
 }
-.teamTimeout1 { left: 0; }
-.teamTimeout2 { left: 13px; }
-.teamTimeout3 { left: 26px; }
-.teamTimeout4 { left: 39px; }
-.teamTimeout5 { left: 52px; }
-.teamTimeout6 { left: 65px; }
+.timeout { background-color: #fff; }
+.timeoutSlot { background-color: rgba(255, 255, 255, 0.16); display: none; }
+
+.teamTimeout1, .slot1 { left: 0; }
+.teamTimeout2, .slot2 { left: 13px; }
+.teamTimeout3, .slot3 { left: 26px; }
+.teamTimeout4, .slot4 { left: 39px; }
+.teamTimeout5, .slot5 { left: 52px; }
+.teamTimeout6, .slot6 { left: 65px; }
 
 /* name-only mode: logo hidden, name spans the logo + abbr area */
 .name-full #team1-foul-container { left: 12px; }
@@ -390,7 +456,7 @@ body {
 .timeContainer {
   position: absolute;
   top: 0;
-  left: 416px;
+  left: 508px;
   width: 210px;
   height: 60px;
   overflow: hidden;
@@ -483,6 +549,17 @@ body {
 
 #shotClockBorder { left: 0; }
 
+/* thin frame around the shot clock digits */
+#shotClockBox {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+}
+
 #shotClock {
   position: absolute;
   left: 0;
@@ -556,6 +633,82 @@ body {
   z-index: 1;
 }
 
+/* 3-pointer: big italic "3" sweeps across the scoring team's block */
+#animationLayer.three {
+  overflow: visible;
+}
+#animationLayer.three:before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: linear-gradient(100deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.25) 100%);
+  z-index: 1;
+}
+#animationLayer.three #animationMessage {
+  top: -16px;
+  height: 92px;
+  line-height: 92px;
+  font-size: 78px;
+  font-style: italic;
+  letter-spacing: 0;
+  color: #fff;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.65), 0 0 22px rgba(255, 255, 255, 0.28);
+  opacity: 0;
+  z-index: 2;
+}
+#animationLayer.three #animationMessage.swoosh-in {
+  -webkit-animation: swooshInLeft 340ms cubic-bezier(0.2, 0.9, 0.25, 1) forwards;
+  animation: swooshInLeft 340ms cubic-bezier(0.2, 0.9, 0.25, 1) forwards;
+}
+#animationLayer.three #animationMessage.swoosh-out {
+  -webkit-animation: swooshOutRight 320ms ease-in forwards;
+  animation: swooshOutRight 320ms ease-in forwards;
+}
+#animationLayer.three.from-right #animationMessage.swoosh-in {
+  -webkit-animation-name: swooshInRight;
+  animation-name: swooshInRight;
+}
+#animationLayer.three.from-right #animationMessage.swoosh-out {
+  -webkit-animation-name: swooshOutLeft;
+  animation-name: swooshOutLeft;
+}
+
+@-webkit-keyframes swooshInLeft {
+  from { -webkit-transform: translateX(-160px) scale(0.55) rotate(-14deg); opacity: 0; }
+  to   { -webkit-transform: translateX(0) scale(1) rotate(-8deg); opacity: 1; }
+}
+@keyframes swooshInLeft {
+  from { transform: translateX(-160px) scale(0.55) rotate(-14deg); opacity: 0; }
+  to   { transform: translateX(0) scale(1) rotate(-8deg); opacity: 1; }
+}
+@-webkit-keyframes swooshInRight {
+  from { -webkit-transform: translateX(160px) scale(0.55) rotate(-14deg); opacity: 0; }
+  to   { -webkit-transform: translateX(0) scale(1) rotate(-8deg); opacity: 1; }
+}
+@keyframes swooshInRight {
+  from { transform: translateX(160px) scale(0.55) rotate(-14deg); opacity: 0; }
+  to   { transform: translateX(0) scale(1) rotate(-8deg); opacity: 1; }
+}
+@-webkit-keyframes swooshOutRight {
+  from { -webkit-transform: translateX(0) scale(1) rotate(-8deg); opacity: 1; }
+  to   { -webkit-transform: translateX(160px) scale(1.2) rotate(-8deg); opacity: 0; }
+}
+@keyframes swooshOutRight {
+  from { transform: translateX(0) scale(1) rotate(-8deg); opacity: 1; }
+  to   { transform: translateX(160px) scale(1.2) rotate(-8deg); opacity: 0; }
+}
+@-webkit-keyframes swooshOutLeft {
+  from { -webkit-transform: translateX(0) scale(1) rotate(-8deg); opacity: 1; }
+  to   { -webkit-transform: translateX(-160px) scale(1.2) rotate(-8deg); opacity: 0; }
+}
+@keyframes swooshOutLeft {
+  from { transform: translateX(0) scale(1) rotate(-8deg); opacity: 1; }
+  to   { transform: translateX(-160px) scale(1.2) rotate(-8deg); opacity: 0; }
+}
+
 /* --- Highlight accent bar under the scoreboard ---------------------------- */
 
 #baseLine {
@@ -565,3 +718,94 @@ body {
   z-index: 1;
   background-color: #282828;
 }
+
+/* ==========================================================================
+   theme-bc — Brooklyn College: glossy dark bar, maroon bookends and popup,
+   gold accents (period, shot clock, possession, timeouts, bonus, edge lines)
+   ========================================================================== */
+
+.theme-bc .team,
+.theme-bc #network-background,
+.theme-bc #hiddenContainer {
+  background-color: #17191d;
+  background-image: linear-gradient(to bottom, #2c2f35 0%, #191b1f 42%, #0f1013 100%);
+  box-shadow: inset 0 1px 0 rgba(235, 183, 0, 0.55);
+}
+
+.theme-bc #periodTimeContainer {
+  background-image: linear-gradient(to bottom, #202226 0%, #121316 50%, #0a0b0d 100%);
+  box-shadow: inset 0 1px 0 rgba(235, 183, 0, 0.55);
+}
+
+.theme-bc .bookend {
+  background-color: #5e1730;
+  background-image: linear-gradient(to bottom, #8a2446 0%, #5e1730 55%, #3f0f21 100%);
+  box-shadow: inset 0 1px 0 rgba(235, 183, 0, 0.7);
+}
+
+.theme-bc .bookendStripe {
+  background-color: #ebb700;
+  background-image: linear-gradient(to right, #c99a00, #f7d24a, #c99a00);
+}
+
+.theme-bc #popup-container {
+  background-color: #5e1730;
+  background-image: linear-gradient(to bottom, #7a1f3d, #52142a);
+}
+.theme-bc #popup-container:before,
+.theme-bc #popup-container:after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 5px;
+  height: 30px;
+  background-color: #ebb700;
+}
+.theme-bc #popup-container:before { left: 0; }
+.theme-bc #popup-container:after { right: 0; }
+.theme-bc #popup-text {
+  letter-spacing: 3px;
+  color: #fff;
+}
+
+.theme-bc #shadowPopUp,
+.theme-bc .shadowDivider {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+.theme-bc #shadowPopUp {
+  background-color: rgba(235, 183, 0, 0.45);
+}
+
+.theme-bc .teamScoreBackground {
+  background-color: rgba(0, 0, 0, 0.38);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.theme-bc #team1Accent { box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.35); }
+.theme-bc #team2Accent { box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.35); }
+
+.theme-bc #possessionArrow1 { border-left-color: #ebb700; }
+.theme-bc #possessionArrow2 { border-right-color: #ebb700; }
+
+.theme-bc #period { color: rgba(235, 183, 0, 0.92); }
+.theme-bc #shotClockContainer { background-color: rgba(0, 0, 0, 0.42); }
+.theme-bc #shotClockBox { border-color: rgba(235, 183, 0, 0.55); }
+.theme-bc #shotClock { color: #ebb700; }
+
+.theme-bc .timeout { background-color: #ebb700; }
+.theme-bc .timeoutSlot { background-color: rgba(255, 255, 255, 0.18); }
+
+.theme-bc .bonusText.bonus {
+  padding: 0 5px;
+  border-radius: 2px;
+  background-color: #d9a900;
+  color: #2a0b17;
+}
+.theme-bc .bonusText.double-bonus {
+  background-color: #ffd23f;
+  color: #2a0b17;
+}
+
+.theme-bc .foul-count { color: rgba(255, 255, 255, 0.72); }
+.theme-bc #baseLine { background-color: #ebb700; }
+.theme-bc #animationLayer:after { background-color: rgba(10, 12, 16, 0.42); }
